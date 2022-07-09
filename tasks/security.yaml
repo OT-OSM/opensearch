@@ -69,7 +69,7 @@
 
 - name: Copy the security configuration file 2 to cluster
   blockinfile:
-    block: "{{ lookup('file', '/tmp/opensearch-nodecerts/config/{{ inventory_hostname }}_elasticsearch_config_snippet.yml') }}"
+    block: "{{ lookup('file', '{{ LocalSystemDest }}/config/{{ inventory_hostname }}_elasticsearch_config_snippet.yml') }}"
     dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
     backup: yes
     insertafter: EOF

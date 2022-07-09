@@ -29,7 +29,7 @@ nodes:
   - name: {{ item }}
     dn: CN={{ item }}.{{ domain_name }},OU=Ops,O={{ domain_name }}\, Inc.,DC={{ domain_name }}
     dns: {{ item }}.{{ domain_name }}
-    ip: {{ hostvars[item]['ip'] }}
+    ip: {{ hostvars[item]['ansible_default_ipv4']['address'] }}
 {% endfor %}
 
 ###

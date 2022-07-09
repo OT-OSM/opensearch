@@ -2,7 +2,7 @@ cluster.name: {{ clusterName }}
 
 node.name: {{ inventory_hostname }}
 
-network.host: {{ hostvars[inventory_hostname]['ip'] }}
+network.host: {{ ansible_default_ipv4.address }}
 
 http.port: {{ OpenSearchPort }}
 

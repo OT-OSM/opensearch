@@ -10,6 +10,6 @@
     -key {{ Opensearch_Dir }}/config/admin.key
     -f {{ Opensearch_Dir }}/plugins/opensearch-security/securityconfig/internal_users.yml
     -nhnv -icl
-    -h {{ hostvars[inventory_hostname]['ip'] }}
+    -h {{ ansible_default_ipv4.address }}
   run_once: true
   become: true
