@@ -1,0 +1,15 @@
+- name: Pause for 20 seconds to provide sometime for OpenSearch start
+  pause:
+    seconds: 20
+
+- name: Initalizing opensearch
+  shell: >
+    bash {{ Opensearch_Dir }}/plugins/opensearch-security/tools/securityadmin.sh
+    -cacert {{ Opensearch_Dir }}/config/root-ca.pem
+    -cert {{ Opensearch_Dir }}/config/admin.pem
+    -key {{ Opensearch_Dir }}/config/admin.key
+    -f {{ Opensearch_Dir }}/plugins/opensearch-security/securityconfig/internal_users.yml
+    -nhnv -icl
+    -h {{ hostvars[inventory_hostname]['ip'] }}
+  run_once: true
+  become: true

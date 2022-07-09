@@ -1,0 +1,29 @@
+---
+- name: Configuring the opensearch DNS in /etc/hosts
+  blockinfile:
+    block: |
+      {{ hostvars[item]['ansible_default_ipv4']['address'] }} {{ item }}.{{ domain_name }} {{ item }}
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+  become: true
+  with_items:
+    - "{{ groups['opensearch'] }}"
+
+- name: Setting up hostname of opensearch nodes
+  hostname:
+    name: "{{ inventory_hostname }}"
+  become: true
+
+- name: Setting vm.max_map_count in opensearch nodes
+  sysctl:
+    name: vm.max_map_count
+    value: "{{ VmMaxMapCountValue }}"
+    state: present
+  become: true
+
+- name: Setting file max value on opensearch nodes
+  sysctl:
+    name: fs.file-max
+    value: "{{ FsFileMaxValue }}"
+    state: present
+  become: true

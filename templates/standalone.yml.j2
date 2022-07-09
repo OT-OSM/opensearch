@@ -1,0 +1,9 @@
+cluster.name: {{ clusterName }}
+
+node.name: {{ inventory_hostname }}
+
+network.host: {{ hostvars[inventory_hostname]['ip'] }}
+
+http.port: {{ OpenSearchPort }}
+
+discovery.type: "{{ DiscoveryType }}"
