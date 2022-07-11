@@ -22,5 +22,4 @@ galaxy_info:
   galaxy_tags:
     - opensearch
 
-dependencies:
-  #- opstree_devops.java
+dependencies: []
