@@ -1,0 +1,9 @@
+---
+
+- name: opensearch
+  hosts: all
+  gather_facts: true
+  roles:
+   - { role: opensearch }
+   
+

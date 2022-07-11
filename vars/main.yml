@@ -1,0 +1,27 @@
+# ---
+# # vars file for opensearch
+
+Version: 1.3.0
+
+Amd: 64
+
+#In Bytes
+VmMaxMapCountValue: 262144
+FsFileMaxValue: 65536
+
+Min_HeapSize: 2
+Max_HeapSize: 2
+
+clusterName: my-application
+OpenSearchPort: 9200
+
+
+admin_password: Strong@321
+kibanaserver_password: varghese
+domain_name: example.com
+
+# Can only use bolean value like true or false and only one should be checked which means only one can we true
+Standalone: false
+Cluster: true
+
+LocalSystemDest: /tmp/opensearch-nodecerts

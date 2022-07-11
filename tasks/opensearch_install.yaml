@@ -1,0 +1,60 @@
+- name: Creating user for opensearch nodes
+  user:
+    name: "{{ UserName }}"
+    state: present
+    shell: /bin/bash
+  become: true
+
+- name: Validate opensearch Binary at its path
+  stat:
+    path: "{{ OpensearchBinaryPath }}/opensearch"
+  register: check_OpenSearch_binary
+
+- name: Unarchive the OpenSearch source url
+  unarchive:
+    src: "{{ BaseUrl }}/{{ Version }}/opensearch-{{ Version }}-linux-x{{ Amd }}.tar.gz"
+    dest: /tmp
+    remote_src: yes
+  when: not check_OpenSearch_binary.stat.exists
+
+- name: Checking opensearch file
+  stat:
+    path: "/tmp/opensearch-{{ Version }}"
+  register: check_unarchive_file_present
+
+- name: Renaming OpenSearch to destination
+  command: "mv /tmp/opensearch-{{ Version }} {{ Opensearch_Dir }}"
+  become: true
+  when: check_unarchive_file_present.stat.exists == true
+
+- name: Adding configuration of single-node
+  template:
+    src: standalone.yml.j2
+    dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
+    mode: 0600
+    force: yes
+  become: true
+  when: Standalone
+
+- name: Adding configuration of cluster
+  template:
+    src: cluster.yml.j2
+    dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
+    mode: 0600
+    force: yes
+  become: true
+  when: Cluster
+
+- name: Adding JVM file
+  template:
+    src: jvm.options.j2
+    dest: "{{ Opensearch_Dir }}/config/jvm.options"
+    mode: 0600
+    force: yes
+  become: true
+
+- name: Creating service file
+  template:
+    src: opensearch.service.j2
+    dest: "/etc/systemd/system/opensearch.service"
+  become: true

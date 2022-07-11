@@ -1,0 +1,22 @@
+# ---
+# # defaults file for opensearch
+
+BaseUrl: https://artifacts.opensearch.org/releases/bundle/opensearch
+
+UserName: opensearch
+Opensearch_Dir: /opt/opensearch
+SecurityFileUrl: https://search.maven.org/remotecontent?filepath=com/floragunn/search-guard-tlstool/1.5/search-guard-tlstool-1.5.tar.gz
+OpensearchBinaryPath: /opt/opensearch/bin
+
+cluster_master_nodes: |-
+        {% for item in groups['cluster_master_nodes'] -%}
+          {{ item }}{% if not loop.last %}, {% endif %}
+        {%- endfor %}
+
+cluster_nodes: |-
+        {% for item in groups['cluster_nodes'] -%}
+          {{ item }}{% if not loop.last %}, {% endif %}
+        {%- endfor %}
+      
+DiscoveryType: single-node
+

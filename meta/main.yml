@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  author: varghese.palamoottil@opstree.com
+  role_name: opensearch
+  description: Install and configure opensearch.
+  company: "Opstree Solutions"
+  min_ansible_version: 2.3
+  license: license (GPLv2)
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 7
+        - 6
+
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+        - jammy
+
+  galaxy_tags:
+    - opensearch
+
+dependencies:
+  #- opstree_devops.java

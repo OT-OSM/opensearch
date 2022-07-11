@@ -1,0 +1,21 @@
+---
+ #tasks file for opensearch
+
+#- name: Including playbook for pre-checks for OpenSearch
+#  include_tasks: pre-requisites.yaml
+#
+#- name: Including playbook to disable SELinux on server
+#  include_tasks: Disable_selinux.yaml
+#  when: (ansible_distribution != "Ubuntu") and (ansible_distribution != "Amazon")
+#
+#- name: Including tasks to install opensearch
+#  include_tasks: opensearch_install.yaml
+#
+#- name: Installing opensearch
+#  include_tasks: security.yaml
+#
+#- name: user-management
+#  include_tasks: user-management.yaml
+
+- name: intializing
+  include_tasks: intializing.yaml
