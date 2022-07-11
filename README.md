@@ -26,7 +26,8 @@ AmaozonLinux:2
 
 #### Mandatory Variables
 
-|**Variables**|**Default Values**|**Possible Values**|**Type**|**Descr---------|------------------|-------------------|--------|---------------|
+|**Variable**|**Default Value**|**Possible Values**|**Description**|
+|------------|-----------------|-------------------|---------------|
 | Standalone | true | <ul><li>true</li><li>false</li></ul> | boolean | Setup opensearch standalone if this value is true then the value of cluster should be false|
 | Cluster | false | <ul><li>true</li><li>false</li></ul> | boolean | Setup opensearch Cluster if this value is true then the value of standalone should be false |
 | admin_password | Strong@321 | *Password* | string | Password for opensearch username |
@@ -35,7 +36,8 @@ AmaozonLinux:2
 
 #### Optional Variables
 
-|**Variables**|**Default Values**|**Possible Values**|**Type**|**Descr---------|------------------|-------------------|--------|---------------|
+|**Variable**|**Default Value**|**Possible Values**|**Description**|
+|------------|-----------------|-------------------|---------------|
 | Version | 1.3.0 | *opensearch Version* | string | Default Version of opensearch |
 | VmMaxMapCountValue | 262144 | Count value | String | Setting vm.max_map_count in opensearch nodes |
 | FsFileMaxValue | 65536 | Count value | String | Setting file max value on opensearch nodes |
