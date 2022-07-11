@@ -48,7 +48,7 @@ AmaozonLinux:2
 
 ### Usage
 
-The inventory for wazuh_manager role should look like this:-
+The inventory for Opensearch role should look like this:-
 
 ```ini
 [opensearch]
