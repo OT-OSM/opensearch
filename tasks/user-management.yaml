@@ -1,10 +1,11 @@
+---
 - name: Configuring Internal User file
   template:
-    src: user.yaml
+    src: user.yaml.j2
     dest: "{{ Opensearch_Dir }}/plugins/opensearch-security/securityconfig/internal_users.yml"
     mode: 0644
   become: true
- 
+
 - name: Seeting admin password
   shell: >
     sed -i '/hash: / s,{{ admin_password }},'$(bash {{ Opensearch_Dir }}/plugins/opensearch-security/tools/hash.sh -p {{ admin_password }} | tail -1)','
@@ -19,4 +20,3 @@
 
 - name: Running all handlers for opensearch nodes
   meta: flush_handlers
-

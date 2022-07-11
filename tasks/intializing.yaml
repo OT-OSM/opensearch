@@ -1,3 +1,4 @@
+---
 - name: Pause for 20 seconds to provide sometime for OpenSearch start
   pause:
     seconds: 20

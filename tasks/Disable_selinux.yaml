@@ -1,5 +1,4 @@
-# Disabling the selinux on different os
-
-- name: Disable the selinux 
+---
+- name: Disable the selinux
   selinux:
     state: disabled

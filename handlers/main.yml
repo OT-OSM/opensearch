@@ -5,5 +5,5 @@
   systemd:
     name: opensearch
     state: restarted
-    enabled: yes
+    enabled: true
   become: true
