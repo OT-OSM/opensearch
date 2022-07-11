@@ -13,3 +13,4 @@
     -h {{ ansible_default_ipv4.address }}
   run_once: true
   become: true
+  changed_when: true
