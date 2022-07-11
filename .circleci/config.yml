@@ -6,7 +6,7 @@ jobs:
       - image: opstree/docker:ansible-lint
     steps:
       - checkout
-      - run: yamllint ./*/*.yml
+      - run: yamllint .
   ansible_lint:
     docker:
       - image: opstree/docker:ansible-lint
