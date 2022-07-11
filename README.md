@@ -5,6 +5,7 @@ Ansible role to configure Opensearch standalone and cluster integration
 Some of the highlighting features are:-
 
   - Standalone setup of Opensearch
+  - Cluster setup of Opensearch
   - Usermanagement 
  
 ### Supported OS
