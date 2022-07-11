@@ -1,11 +1,11 @@
-# ---
+---
 # # vars file for opensearch
 
 Version: 1.3.0
 
 Amd: 64
 
-#In Bytes
+# In Bytes
 VmMaxMapCountValue: 262144
 FsFileMaxValue: 65536
 

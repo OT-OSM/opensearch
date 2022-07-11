@@ -1,3 +1,4 @@
+---
 - name: Creating user for opensearch nodes
   user:
     name: "{{ UserName }}"
@@ -14,7 +15,7 @@
   unarchive:
     src: "{{ BaseUrl }}/{{ Version }}/opensearch-{{ Version }}-linux-x{{ Amd }}.tar.gz"
     dest: /tmp
-    remote_src: yes
+    remote_src: true
   when: not check_OpenSearch_binary.stat.exists
 
 - name: Checking opensearch file
@@ -32,7 +33,7 @@
     src: standalone.yml.j2
     dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
     mode: 0600
-    force: yes
+    force: true
   become: true
   when: Standalone
 
@@ -41,7 +42,7 @@
     src: cluster.yml.j2
     dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
     mode: 0600
-    force: yes
+    force: true
   become: true
   when: Cluster
 
@@ -50,7 +51,7 @@
     src: jvm.options.j2
     dest: "{{ Opensearch_Dir }}/config/jvm.options"
     mode: 0600
-    force: yes
+    force: true
   become: true
 
 - name: Creating service file

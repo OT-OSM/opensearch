@@ -1,6 +1,4 @@
-# ---
-# # defaults file for opensearch
-
+---
 BaseUrl: https://artifacts.opensearch.org/releases/bundle/opensearch
 
 UserName: opensearch
@@ -17,6 +15,5 @@ cluster_nodes: |-
         {% for item in groups['cluster_nodes'] -%}
           {{ item }}{% if not loop.last %}, {% endif %}
         {%- endfor %}
-      
-DiscoveryType: single-node
 
+DiscoveryType: single-node
