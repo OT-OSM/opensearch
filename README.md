@@ -83,7 +83,7 @@ An example playbook should look like this:-
   hosts: all
   gather_facts: true
   roles:
-   - { role: opensearch }
+   - { role: opstree_devops.opensearch }
 ```
 
 and for running the ansible role, we will use ansible cli.

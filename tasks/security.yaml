@@ -74,6 +74,7 @@
     backup: true
     insertafter: EOF
     marker: "## {mark} opensearch Security Node & Admin certificates configuration ##"
+  become: true
 
 - name: Confuguring newly added security configuration
   command: sed -i 's/searchguard/plugins.security/g' {{ Opensearch_Dir }}/config/opensearch.yml
