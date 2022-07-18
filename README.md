@@ -13,9 +13,11 @@ Some of the highlighting features are:-
 Ubuntu:
   - focal
   - bionic
-Centos
+
+Centos:
   - 7
   - 8
+  
 AmaozonLinux:2
 
 ### Requirements
