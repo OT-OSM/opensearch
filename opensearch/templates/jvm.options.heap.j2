@@ -1,0 +1,6 @@
+# opensearch/templates/jvm.options.heap.j2
+# Heap size configuration
+# Managed by Ansible
+
+-Xms{{ opensearch_heap_size }}
+-Xmx{{ opensearch_heap_size }}

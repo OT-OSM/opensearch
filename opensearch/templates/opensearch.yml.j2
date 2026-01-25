@@ -1,0 +1,107 @@
+# opensearch/templates/opensearch.yml.j2
+# ======================== OpenSearch Configuration =========================
+#
+# Managed by Ansible - Do not edit manually
+#
+
+# ---------------------------------- Cluster -----------------------------------
+cluster.name: {{ opensearch_cluster_name }}
+node.name: {{ opensearch_node_name }}
+
+# ------------------------------------ Node ------------------------------------
+{% if opensearch_node_roles is defined and opensearch_node_roles | length > 0 %}
+node.roles:
+{% for role in opensearch_node_roles %}
+  - {{ role }}
+{% endfor %}
+{% endif %}
+
+# ----------------------------------- Paths ------------------------------------
+path.data: {{ opensearch_data_dir }}
+path.logs: {{ opensearch_log_dir }}
+
+# ----------------------------------- Memory -----------------------------------
+bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | lower }}
+
+# ---------------------------------- Network -----------------------------------
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+
+# --------------------------------- Discovery ----------------------------------
+discovery.seed_hosts:
+{% for host in groups['opensearch'] %}
+  - {{ hostvars[host]['ansible_default_ipv4']['address'] | default(hostvars[host]['ansible_host']) }}:{{ opensearch_transport_port }}
+{% endfor %}
+
+cluster.initial_cluster_manager_nodes:
+{% for node in groups['opensearch'] %}
+  - {{ node }}
+{% endfor %}
+
+# ---------------------------------- Gateway -----------------------------------
+gateway.recover_after_nodes: {{ ((groups['opensearch'] | length / 2) | round(0, 'ceil') | int) }}
+
+# ---------------------------------- Various -----------------------------------
+action.destructive_requires_name: {{ opensearch_action_destructive_requires_name | lower }}
+indices.query.bool.max_clause_count: {{ opensearch_indices_query_bool_max_clause_count }}
+
+{% if opensearch_snapshot_repo_enabled %}
+# --------------------------------- Snapshots ----------------------------------
+path.repo: ["{{ opensearch_snapshot_repo_path }}"]
+{% endif %}
+
+{% if opensearch_security_enabled %}
+# ================================ Security ====================================
+
+######## Start OpenSearch Security Configuration ########
+# WARNING: Do not edit this section unless you know what you are doing
+
+plugins.security.disabled: {{ (not opensearch_security_enabled) | lower }}
+{% if opensearch_security_tls_enabled %}
+# -------------------------------- TLS/SSL -------------------------------------
+
+# Transport layer TLS
+plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_node_cert }}
+plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_node_key }}
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_root_ca }}
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.resolve_hostname: false
+
+# HTTP layer TLS
+plugins.security.ssl.http.enabled: {{ opensearch_tls_http_enabled | lower }}
+plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_node_cert }}
+plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_node_key }}
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_root_ca }}
+{% else %}
+# TLS disabled - using plain HTTP
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.http.enabled: false
+{% endif %}
+
+# ----------------------------- Admin certificates -----------------------------
+plugins.security.authcz.admin_dn:
+  - 'CN=admin,OU=Ops,O=Example Com\, Inc.,DC=example,DC=com'
+
+# ----------------------------- Node certificates ------------------------------
+plugins.security.nodes_dn:
+  - 'CN=*.example.com,OU=Ops,O=Example Com\, Inc.,DC=example,DC=com'
+  - 'CN=node-*.example.com,OU=Ops,O=Example Com\, Inc.,DC=example,DC=com'
+
+# ------------------------------- Audit logging --------------------------------
+plugins.security.audit.type: internal_opensearch
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+
+# Disable certain security features for easier initial setup (remove in production)
+plugins.security.allow_unsafe_democertificates: {{ 'true' if not opensearch_security_tls_enabled else 'false' }}
+plugins.security.allow_default_init_securityindex: true
+plugins.security.audit.config.disabled_rest_categories: NONE
+plugins.security.audit.config.disabled_transport_categories: NONE
+
+######## End OpenSearch Security Configuration ########
+{% else %}
+# Security plugin disabled
+plugins.security.disabled: true
+{% endif %}

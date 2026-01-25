@@ -1,0 +1,6 @@
+admin:
+  hash: "$2y$12$WU4u4HdtT0/Rq7Ed4CRxIOo01m7lTRuqs65EW5q12Mw5rNZJnegs6"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Admin user (managed by Ansible)"

@@ -1,0 +1,98 @@
+# opensearch/tasks/install.yml
+---
+- name: Check if OpenSearch is already installed
+  ansible.builtin.stat:
+    path: "{{ opensearch_home }}"
+  register: opensearch_installed
+  tags: ['install']
+
+# ============================================================
+# Debian / Ubuntu (.deb)
+# ============================================================
+- name: Download OpenSearch .deb package
+  ansible.builtin.get_url:
+    url: "{{ opensearch_download_url }}"
+    dest: "/tmp/opensearch-{{ opensearch_version }}.deb"
+    mode: '0644'
+  when:
+    - ansible_os_family == "Debian"
+    - not opensearch_installed.stat.exists
+  tags: ['install', 'download']
+
+- name: Install OpenSearch using .deb
+  ansible.builtin.apt:
+    deb: "/tmp/opensearch-{{ opensearch_version }}.deb"
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - not opensearch_installed.stat.exists
+  tags: ['install']
+
+- name: Clean up downloaded .deb package
+  ansible.builtin.file:
+    path: "/tmp/opensearch-{{ opensearch_version }}.deb"
+    state: absent
+  when:
+    - ansible_os_family == "Debian"
+  tags: ['install', 'cleanup']
+
+
+# ============================================================
+# RHEL / Amazon / SUSE (.rpm)
+# ============================================================
+- name: Download OpenSearch .rpm package
+  ansible.builtin.get_url:
+    url: "{{ opensearch_download_url_rpm }}"
+    dest: "/tmp/opensearch-{{ opensearch_version }}.rpm"
+    mode: '0644'
+  when:
+    - ansible_os_family in ["RedHat", "Suse"]
+    - not opensearch_installed.stat.exists
+  tags: ['install', 'download']
+
+# ✅ FIX for RHEL9/Rocky9 SHA1 issue:
+# Install RPM without signature verification
+- name: Install OpenSearch using .rpm (skip signature check)
+  ansible.builtin.command: >
+    rpm -ivh --nosignature --nodigest /tmp/opensearch-{{ opensearch_version }}.rpm
+  args:
+    creates: "{{ opensearch_home }}/bin/opensearch"
+  when:
+    - ansible_os_family in ["RedHat", "Suse"]
+    - not opensearch_installed.stat.exists
+  tags: ['install']
+
+- name: Clean up downloaded .rpm package
+  ansible.builtin.file:
+    path: "/tmp/opensearch-{{ opensearch_version }}.rpm"
+    state: absent
+  when:
+    - ansible_os_family in ["RedHat", "Suse"]
+  tags: ['install', 'cleanup']
+
+
+# ============================================================
+# Plugins
+# ============================================================
+- name: Install OpenSearch plugins
+  ansible.builtin.command: "{{ opensearch_home }}/bin/opensearch-plugin install {{ item }} --batch"
+  loop: "{{ opensearch_install_plugins | default([]) }}"
+  when: (opensearch_install_plugins | default([])) | length > 0
+  register: plugin_install
+  changed_when: "'installed' in plugin_install.stdout or 'Installed' in plugin_install.stdout"
+  failed_when: plugin_install.rc != 0 and
+               ('already exists' not in plugin_install.stdout and 'already installed' not in plugin_install.stdout)
+  become: yes
+  become_user: "{{ opensearch_user }}"
+  tags: ['install', 'plugins']
+
+
+# ============================================================
+# Service enable
+# ============================================================
+- name: Enable OpenSearch service
+  ansible.builtin.systemd:
+    name: opensearch
+    enabled: yes
+    daemon_reload: yes
+  tags: ['install', 'service']

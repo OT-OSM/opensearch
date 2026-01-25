@@ -1,0 +1,93 @@
+# opensearch/tasks/validate.yml
+---
+- name: Check OpenSearch service status
+  ansible.builtin.systemd:
+    name: opensearch
+  register: opensearch_service_status
+  tags: ['validate', 'service']
+
+- name: Verify OpenSearch is active
+  ansible.builtin.assert:
+    that:
+      - opensearch_service_status.status.ActiveState == "active"
+    fail_msg: "OpenSearch service is not active. Current state: {{ opensearch_service_status.status.ActiveState }}"
+    success_msg: "OpenSearch service is running successfully"
+  tags: ['validate', 'service']
+
+- name: Check cluster health
+  ansible.builtin.uri:
+    url: "{{ 'https' if opensearch_security_tls_enabled else 'http' }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ 'admin' if opensearch_security_enabled else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_security_enabled else omit }}"
+    force_basic_auth: "{{ opensearch_security_enabled }}"
+    validate_certs: no
+    return_content: yes
+  register: cluster_health
+  when: inventory_hostname == groups['opensearch'][0]
+  tags: ['validate', 'cluster']
+
+- name: Display cluster health
+  ansible.builtin.debug:
+    msg:
+      - "Cluster Name: {{ cluster_health.json.cluster_name }}"
+      - "Status: {{ cluster_health.json.status }}"
+      - "Number of Nodes: {{ cluster_health.json.number_of_nodes }}"
+      - "Active Primary Shards: {{ cluster_health.json.active_primary_shards }}"
+      - "Active Shards: {{ cluster_health.json.active_shards }}"
+  when: 
+    - inventory_hostname == groups['opensearch'][0]
+    - cluster_health is defined
+  tags: ['validate', 'cluster']
+
+- name: Check nodes in cluster
+  ansible.builtin.uri:
+    url: "{{ 'https' if opensearch_security_tls_enabled else 'http' }}://127.0.0.1:{{ opensearch_http_port }}/_cat/nodes?v"
+    method: GET
+    user: "{{ 'admin' if opensearch_security_enabled else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_security_enabled else omit }}"
+    force_basic_auth: "{{ opensearch_security_enabled }}"
+    validate_certs: no
+    return_content: yes
+  register: cluster_nodes
+  when: inventory_hostname == groups['opensearch'][0]
+  tags: ['validate', 'cluster']
+
+- name: Display cluster nodes
+  ansible.builtin.debug:
+    msg: "{{ cluster_nodes.content.split('\n') }}"
+  when: 
+    - inventory_hostname == groups['opensearch'][0]
+    - cluster_nodes is defined
+  tags: ['validate', 'cluster']
+
+- name: Verify expected number of nodes
+  ansible.builtin.assert:
+    that:
+      - cluster_health.json.number_of_nodes == groups['opensearch'] | length
+    fail_msg: "Expected {{ groups['opensearch'] | length }} nodes, but found {{ cluster_health.json.number_of_nodes }}"
+    success_msg: "All {{ groups['opensearch'] | length }} nodes are present in the cluster"
+  when: 
+    - inventory_hostname == groups['opensearch'][0]
+    - cluster_health is defined
+  tags: ['validate', 'cluster']
+
+- name: Check OpenSearch Dashboards service status (only dashboards node)
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+  register: dashboards_service_status
+  when:
+    - opensearch_install_dashboards | bool
+    - inventory_hostname == opensearch_dashboards_node
+  tags: ['validate', 'dashboards']
+
+- name: Verify Dashboards is active (only dashboards node)
+  ansible.builtin.assert:
+    that:
+      - dashboards_service_status.status.ActiveState == "active"
+    fail_msg: "OpenSearch Dashboards service is not active"
+    success_msg: "OpenSearch Dashboards is running successfully"
+  when:
+    - opensearch_install_dashboards | bool
+    - inventory_hostname == opensearch_dashboards_node
+  tags: ['validate', 'dashboards']

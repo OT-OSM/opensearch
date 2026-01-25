@@ -1,0 +1,188 @@
+# opensearch/tasks/prereqs.yml
+---
+# ------------------------ Repo Fix + Cache Update ------------------------
+
+- name: Ensure Universe repo enabled (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
+    state: present
+  when: ansible_distribution == "Ubuntu"
+  tags: ['packages', 'java', 'prereqs']
+
+- name: Update apt cache (Debian family)
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: ['packages', 'java', 'prereqs']
+
+# ------------------------ Base Packages ------------------------
+
+- name: Install base packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - ca-certificates
+      - gnupg
+      - apt-transport-https
+      - software-properties-common
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: ['packages']
+
+# -------------------- RHEL / Rocky / CentOS --------------------
+- name: Install base packages (RHEL family)
+  ansible.builtin.package:
+    name:
+      - curl
+      - wget
+      - ca-certificates
+      - tar
+      - unzip
+      - gzip
+      - python3
+      - gnupg2
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution != "Amazon"
+  tags: ['packages']
+
+
+# -------------------- Amazon Linux (2 / 2023) --------------------
+- name: Install base packages (Amazon Linux)
+  ansible.builtin.package:
+    name:
+      - curl-minimal
+      - wget
+      - ca-certificates
+      - tar
+      - unzip
+      - gzip
+      - python3
+      - gnupg2-minimal
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution == "Amazon"
+  tags: ['packages']
+
+- name: Install base packages (SUSE)
+  ansible.builtin.zypper:
+    name:
+      - curl
+      - wget
+      - ca-certificates
+      - gpg2
+    state: present
+  when: ansible_os_family == "Suse"
+  tags: ['packages']
+
+# ------------------------ Java 17 Installation ------------------------
+
+- name: Install Java 17 (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: openjdk-17-jdk
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: ['java']
+
+- name: Install Java 17 (RHEL/CentOS/Rocky)
+  ansible.builtin.package:
+    name: java-17-openjdk
+    state: present
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution != "Amazon"
+  tags: ['java']
+
+- name: Install Java 17 (Amazon Linux)
+  ansible.builtin.package:
+    name: java-17-amazon-corretto
+    state: present
+  when: ansible_distribution == "Amazon"
+  tags: ['java']
+
+# ------------------------ System Settings ------------------------
+
+- name: Disable swap (runtime)
+  ansible.builtin.command: swapoff -a
+  when: opensearch_disable_swap | bool
+  changed_when: false
+  failed_when: false
+  tags: ['system']
+
+- name: Disable swap (persistent)
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+.*)$'
+    replace: '# \1'
+  when: opensearch_disable_swap | bool
+  tags: ['system']
+
+- name: Ensure vm.max_map_count set
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ opensearch_vm_max_map_count }}"
+    state: present
+    reload: yes
+  tags: ['system']
+
+# ------------------------ User + Directories ------------------------
+
+- name: Ensure OpenSearch user exists
+  ansible.builtin.user:
+    name: "{{ opensearch_user }}"
+    system: yes
+    shell: /bin/bash
+    createhome: yes
+  tags: ['user']
+
+- name: Ensure required directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0755'
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_dir }}"
+    - "{{ opensearch_log_dir }}"
+    - "{{ opensearch_pid_dir }}"
+    - "{{ opensearch_config_dir }}/certs"
+  tags: ['directories']
+
+# ------------------------ Limits + systemd ------------------------
+
+- name: Configure ulimit limits for opensearch user
+  ansible.builtin.copy:
+    dest: /etc/security/limits.d/opensearch.conf
+    content: |
+      {{ opensearch_user }} soft nofile {{ opensearch_file_descriptors }}
+      {{ opensearch_user }} hard nofile {{ opensearch_file_descriptors }}
+      {{ opensearch_user }} soft memlock {{ opensearch_max_locked_memory }}
+      {{ opensearch_user }} hard memlock {{ opensearch_max_locked_memory }}
+      {{ opensearch_user }} soft nproc 4096
+      {{ opensearch_user }} hard nproc 4096
+    mode: '0644'
+  tags: ['limits']
+
+- name: Create systemd override directory for opensearch
+  ansible.builtin.file:
+    path: /etc/systemd/system/opensearch.service.d
+    state: directory
+    mode: '0755'
+  tags: ['systemd']
+
+- name: Configure systemd limits for OpenSearch
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/opensearch.service.d/override.conf
+    content: |
+      [Service]
+      LimitNOFILE={{ opensearch_file_descriptors }}
+      LimitMEMLOCK=infinity
+    mode: '0644'
+  notify: reload systemd
+  tags: ['systemd']

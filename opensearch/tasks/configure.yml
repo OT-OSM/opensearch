@@ -1,0 +1,90 @@
+# opensearch/tasks/configure.yml
+---
+- name: Ensure jvm.options.d directory exists
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/jvm.options.d"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0755'
+  tags: ['configure']
+
+- name: Configure JVM heap options
+  ansible.builtin.template:
+    src: jvm.options.heap.j2
+    dest: "{{ opensearch_config_dir }}/jvm.options.d/heap.options"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0644'
+  notify: restart opensearch
+  tags: ['configure', 'jvm']
+
+- name: Render opensearch.yml configuration
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0644'
+    backup: yes
+  notify: restart opensearch
+  tags: ['configure']
+
+# Copy TLS certificates only when TLS enabled AND not autogenerating
+- name: Copy TLS certificates (manual mode)
+  ansible.builtin.copy:
+    src: "certs/{{ item }}"
+    dest: "{{ opensearch_config_dir }}/certs/{{ item }}"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0644'
+  loop:
+    - "{{ opensearch_root_ca }}"
+    - "{{ opensearch_node_cert }}"
+    - "{{ opensearch_node_key }}"
+    - "{{ opensearch_admin_cert }}"
+    - "{{ opensearch_admin_key }}"
+  when:
+    - opensearch_security_tls_enabled | bool
+    - not opensearch_tls_autogenerate | bool
+  notify: restart opensearch
+  tags: ['configure', 'tls', 'certificates']
+
+- name: Fix permissions on private keys
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/certs/{{ item }}"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0400'
+  loop:
+    - "{{ opensearch_node_key }}"
+    - "{{ opensearch_admin_key }}"
+  when:
+    - opensearch_security_tls_enabled | bool
+    - not opensearch_tls_autogenerate | bool
+  tags: ['configure', 'tls', 'certificates']
+
+- name: Set proper ownership on all OpenSearch directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    recurse: yes
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_dir }}"
+    - "{{ opensearch_log_dir }}"
+  tags: ['configure', 'permissions']
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  tags: ['configure']
+
+- name: Start and enable OpenSearch service
+  ansible.builtin.systemd:
+    name: opensearch
+    state: restarted
+    enabled: yes
+  tags: ['configure', 'service']

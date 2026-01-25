@@ -1,0 +1,168 @@
+# opensearch/tasks/dashboards.yml
+---
+# ✅ Dashboards should run ONLY on dashboards node
+- name: Dashboards | Check if OpenSearch Dashboards is already installed
+  ansible.builtin.stat:
+    path: "{{ dashboards_home }}"
+  register: dashboards_installed
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'install']
+
+# -------------------- Debian/Ubuntu (.deb) --------------------
+- name: Dashboards | Download OpenSearch Dashboards .deb package
+  ansible.builtin.get_url:
+    url: "{{ dashboards_download_url }}"
+    dest: "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.deb"
+    mode: '0644'
+  when:
+    - inventory_hostname == opensearch_dashboards_node
+    - ansible_os_family == "Debian"
+    - not dashboards_installed.stat.exists
+  tags: ['dashboards', 'download']
+
+- name: Dashboards | Install OpenSearch Dashboards (.deb)
+  ansible.builtin.apt:
+    deb: "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.deb"
+    state: present
+  when:
+    - inventory_hostname == opensearch_dashboards_node
+    - ansible_os_family == "Debian"
+    - not dashboards_installed.stat.exists
+  tags: ['dashboards', 'install']
+
+# -------------------- RHEL/Amazon/SUSE (.rpm) --------------------
+- name: Dashboards | Download OpenSearch Dashboards .rpm package
+  ansible.builtin.get_url:
+    url: "{{ dashboards_download_url_rpm }}"
+    dest: "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.rpm"
+    mode: '0644'
+  when:
+    - inventory_hostname == opensearch_dashboards_node
+    - ansible_os_family in ["RedHat", "Suse"]
+    - not dashboards_installed.stat.exists
+  tags: ['dashboards', 'download']
+
+- name: Dashboards | Install OpenSearch Dashboards (.rpm)
+  ansible.builtin.package:
+    name: "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.rpm"
+    state: present
+  when:
+    - inventory_hostname == opensearch_dashboards_node
+    - ansible_os_family in ["RedHat", "Suse"]
+    - not dashboards_installed.stat.exists
+  tags: ['dashboards', 'install']
+
+# -------------------- Configure --------------------
+- name: Dashboards | Ensure Dashboards directories exist with correct ownership
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ dashboards_config_dir }}", owner: "root", group: "root", mode: "0755" }
+    - { path: "{{ dashboards_config_dir }}/certs", owner: "root", group: "root", mode: "0755" }
+    - { path: "{{ dashboards_data_dir }}", owner: "opensearch-dashboards", group: "opensearch-dashboards", mode: "0755" }
+    - { path: "{{ dashboards_log_dir }}", owner: "opensearch-dashboards", group: "opensearch-dashboards", mode: "0755" }
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'directories']
+
+- name: Dashboards | Ensure dashboards log file exists
+  ansible.builtin.file:
+    path: "{{ dashboards_log_dir }}/opensearch-dashboards.log"
+    state: touch
+    owner: "opensearch-dashboards"
+    group: "opensearch-dashboards"
+    mode: "0644"
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'directories']
+
+- name: Dashboards | Copy TLS certificates for Dashboards (if TLS enabled)
+  ansible.builtin.copy:
+    src: "certs/{{ opensearch_root_ca }}"
+    dest: "{{ dashboards_config_dir }}/certs/{{ opensearch_root_ca }}"
+    owner: "root"
+    group: "root"
+    mode: '0644'
+  when:
+    - inventory_hostname == opensearch_dashboards_node
+    - opensearch_security_tls_enabled | bool
+  tags: ['dashboards', 'tls']
+
+- name: Dashboards | Configure OpenSearch Dashboards
+  ansible.builtin.template:
+    src: opensearch_dashboards.yml.j2
+    dest: "{{ dashboards_config_dir }}/opensearch_dashboards.yml"
+    owner: "root"
+    group: "root"
+    mode: '0644'
+    backup: yes
+  when: inventory_hostname == opensearch_dashboards_node
+  notify: restart opensearch-dashboards
+  tags: ['dashboards', 'configure']
+
+# ✅ Fix for: Unit opensearch-dashboards.service not loaded
+- name: Dashboards | Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'service']
+
+- name: Dashboards | Reset dashboards failed state (ignore error)
+  ansible.builtin.command: systemctl reset-failed opensearch-dashboards
+  when: inventory_hostname == opensearch_dashboards_node
+  changed_when: false
+  failed_when: false
+  tags: ['dashboards', 'service']
+
+- name: Dashboards | Enable and start OpenSearch Dashboards service
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'service']
+
+- name: Dashboards | Wait for OpenSearch Dashboards to be available
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ dashboards_port }}"
+    delay: 10
+    timeout: 300
+    state: started
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'wait']
+
+- name: Dashboards | Check OpenSearch Dashboards API health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ dashboards_port }}/api/status"
+    method: GET
+    status_code: [200, 401, 503]
+    timeout: 10
+  register: dashboards_health
+  until: dashboards_health.status in [200, 401]
+  retries: 30
+  delay: 10
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'validate']
+
+# -------------------- Cleanup --------------------
+- name: Dashboards | Clean up downloaded Dashboards packages
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.deb"
+    - "/tmp/opensearch-dashboards-{{ opensearch_dashboards_version }}.rpm"
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'cleanup']
+
+- name: Dashboards | Display Dashboards access information
+  ansible.builtin.debug:
+    msg:
+      - "OpenSearch Dashboards is now available at:"
+      - "http://{{ ansible_host | default(inventory_hostname) }}:{{ dashboards_port }}"
+  when: inventory_hostname == opensearch_dashboards_node
+  tags: ['dashboards', 'info']

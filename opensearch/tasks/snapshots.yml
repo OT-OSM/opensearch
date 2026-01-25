@@ -1,0 +1,50 @@
+# opensearch/tasks/snapshots.yml
+---
+- name: Ensure snapshot repository directory exists
+  ansible.builtin.file:
+    path: "{{ opensearch_snapshot_repo_path }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0755'
+  tags: ['snapshots']
+
+- name: Create snapshot repository
+  ansible.builtin.uri:
+    url: "{{ 'https' if opensearch_security_tls_enabled else 'http' }}://127.0.0.1:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repo_name }}"
+    method: PUT
+    user: "{{ 'admin' if opensearch_security_enabled else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_security_enabled else omit }}"
+    force_basic_auth: "{{ opensearch_security_enabled }}"
+    validate_certs: no
+    body_format: json
+    body:
+      type: "{{ opensearch_snapshot_repo_type }}"
+      settings:
+        location: "{{ opensearch_snapshot_repo_path }}"
+        compress: true
+    status_code: [200, 201]
+  when: inventory_hostname == groups['opensearch'][0]
+  register: snapshot_repo
+  tags: ['snapshots']
+
+- name: Verify snapshot repository
+  ansible.builtin.uri:
+    url: "{{ 'https' if opensearch_security_tls_enabled else 'http' }}://127.0.0.1:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repo_name }}"
+    method: GET
+    user: "{{ 'admin' if opensearch_security_enabled else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_security_enabled else omit }}"
+    force_basic_auth: "{{ opensearch_security_enabled }}"
+    validate_certs: no
+    return_content: yes
+  when: inventory_hostname == groups['opensearch'][0]
+  register: repo_verify
+  tags: ['snapshots']
+
+- name: Display snapshot repository info
+  ansible.builtin.debug:
+    msg: "Snapshot repository '{{ opensearch_snapshot_repo_name }}' created successfully at {{ opensearch_snapshot_repo_path }}"
+  when: 
+    - inventory_hostname == groups['opensearch'][0]
+    - snapshot_repo is changed
+  tags: ['snapshots']

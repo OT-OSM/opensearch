@@ -1,0 +1,57 @@
+# opensearch/tasks/tls_autogen.yml
+---
+- name: Install OpenSSL
+  ansible.builtin.package:
+    name: openssl
+    state: present
+
+- name: Generate OpenSearch TLS certs (self-signed)
+  ansible.builtin.shell: |
+    set -e
+    CERT_DIR="{{ opensearch_config_dir }}/certs"
+    mkdir -p "$CERT_DIR"
+
+    # Root CA
+    openssl genrsa -out "$CERT_DIR/root-ca.key" 2048
+    openssl req -x509 -new -nodes \
+      -key "$CERT_DIR/root-ca.key" \
+      -sha256 -days 3650 \
+      -subj "/CN=OpenSearch-Root-CA" \
+      -out "$CERT_DIR/{{ opensearch_root_ca }}"
+
+    # Node key/cert
+    openssl genrsa -out "$CERT_DIR/{{ opensearch_node_key }}" 2048
+    openssl req -new \
+      -key "$CERT_DIR/{{ opensearch_node_key }}" \
+      -subj "/CN={{ inventory_hostname }}" \
+      -out "$CERT_DIR/node.csr"
+
+    openssl x509 -req -in "$CERT_DIR/node.csr" \
+      -CA "$CERT_DIR/{{ opensearch_root_ca }}" \
+      -CAkey "$CERT_DIR/root-ca.key" \
+      -CAcreateserial \
+      -out "$CERT_DIR/{{ opensearch_node_cert }}" \
+      -days 3650 -sha256
+
+    # Admin key/cert
+    openssl genrsa -out "$CERT_DIR/{{ opensearch_admin_key }}" 2048
+    openssl req -new \
+      -key "$CERT_DIR/{{ opensearch_admin_key }}" \
+      -subj "/CN=admin" \
+      -out "$CERT_DIR/admin.csr"
+
+    openssl x509 -req -in "$CERT_DIR/admin.csr" \
+      -CA "$CERT_DIR/{{ opensearch_root_ca }}" \
+      -CAkey "$CERT_DIR/root-ca.key" \
+      -CAcreateserial \
+      -out "$CERT_DIR/{{ opensearch_admin_cert }}" \
+      -days 3650 -sha256
+
+    rm -f "$CERT_DIR/node.csr" "$CERT_DIR/admin.csr"
+    chown -R {{ opensearch_user }}:{{ opensearch_group }} "$CERT_DIR"
+    chmod 400 "$CERT_DIR/{{ opensearch_node_key }}" "$CERT_DIR/{{ opensearch_admin_key }}"
+  args:
+    executable: /bin/bash
+  when:
+    - opensearch_security_tls_enabled | bool
+    - opensearch_tls_autogenerate | bool

@@ -1,0 +1,41 @@
+# opensearch/tasks/main.yml
+---
+- name: Include prerequisite tasks
+  ansible.builtin.import_tasks: prereqs.yml
+  tags: ['opensearch', 'prereqs']
+
+- name: Include installation tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: ['opensearch', 'install']
+
+- name: Include configuration tasks
+  ansible.builtin.import_tasks: configure.yml
+  tags: ['opensearch', 'configure']
+
+- name: Include TLS auto-generation tasks
+  ansible.builtin.import_tasks: tls_autogen.yml
+  when:
+    - opensearch_security_tls_enabled | bool
+    - opensearch_tls_autogenerate | bool
+  tags: ['opensearch', 'tls']
+
+- name: Include security tasks
+  ansible.builtin.import_tasks: security.yml
+  when: opensearch_security_enabled | bool
+  tags: ['opensearch', 'security']
+
+- name: Include OpenSearch Dashboards tasks
+  ansible.builtin.import_tasks: dashboards.yml
+  when:
+    - opensearch_install_dashboards | bool
+    - inventory_hostname == opensearch_dashboards_node
+  tags: ['opensearch', 'dashboards']
+
+- name: Include snapshot tasks
+  ansible.builtin.import_tasks: snapshots.yml
+  when: opensearch_snapshot_repo_enabled | bool
+  tags: ['opensearch', 'snapshots']
+
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: ['opensearch', 'validate']

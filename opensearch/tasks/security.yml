@@ -1,0 +1,113 @@
+# opensearch/tasks/security.yml
+---
+- name: Check if security already initialized
+  ansible.builtin.stat:
+    path: "{{ opensearch_config_dir }}/.security_initialized"
+  register: security_marker
+  when: opensearch_security_enabled | bool
+  tags: ['security']
+
+- name: Ensure OpenSearch security config directory exists
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/opensearch-security"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "0755"
+  when: opensearch_security_enabled | bool
+  tags: ['security', 'config']
+
+- name: Copy OpenSearch security config files
+  ansible.builtin.copy:
+    src: "securityconfig/{{ item }}"
+    dest: "{{ opensearch_config_dir }}/opensearch-security/{{ item }}"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "0644"
+  loop:
+    - config.yml
+    - roles.yml
+    - roles_mapping.yml
+    - internal_users.yml
+    - action_groups.yml
+    - tenants.yml
+    - nodes_dn.yml
+    - whitelist.yml
+  when: opensearch_security_enabled | bool
+  tags: ['security', 'config']
+
+- name: Restart OpenSearch after copying security config
+  ansible.builtin.systemd:
+    name: opensearch
+    state: restarted
+    enabled: yes
+  when:
+    - opensearch_security_enabled | bool
+    - not security_marker.stat.exists
+  tags: ['security', 'service']
+
+- name: Wait for OpenSearch transport port (9300) to be available
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ opensearch_transport_port }}"
+    delay: 5
+    timeout: 180
+    state: started
+  when:
+    - opensearch_security_enabled | bool
+    - not security_marker.stat.exists
+  tags: ['security', 'wait']
+
+# ✅ Non-TLS mode: ALWAYS use transport port 9300
+- name: Initialize OpenSearch Security (securityadmin.sh) - Non TLS
+  ansible.builtin.command: >
+    {{ opensearch_home }}/plugins/opensearch-security/tools/securityadmin.sh
+    -cd {{ opensearch_config_dir }}/opensearch-security
+    -icl -nhnv
+    -h 127.0.0.1
+    -p {{ opensearch_transport_port }}
+  become: yes
+  when:
+    - opensearch_security_enabled | bool
+    - not opensearch_security_tls_enabled | bool
+    - not security_marker.stat.exists
+    - inventory_hostname == groups['opensearch'][0]
+  register: security_init_notls
+  changed_when: "'Done with success' in security_init_notls.stdout"
+  tags: ['security', 'init']
+
+- name: Mark security as initialized
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/.security_initialized"
+    state: touch
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "0644"
+  when:
+    - opensearch_security_enabled | bool
+    - inventory_hostname == groups['opensearch'][0]
+    - security_init_notls is defined
+  tags: ['security']
+
+- name: Restart OpenSearch after security initialization
+  ansible.builtin.systemd:
+    name: opensearch
+    state: restarted
+    enabled: yes
+  when:
+    - opensearch_security_enabled | bool
+    - inventory_hostname == groups['opensearch'][0]
+    - security_init_notls is defined
+  tags: ['security', 'service']
+
+- name: Wait for OpenSearch HTTP port after security init
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ opensearch_http_port }}"
+    delay: 5
+    timeout: 180
+    state: started
+  when:
+    - opensearch_security_enabled | bool
+    - inventory_hostname == groups['opensearch'][0]
+  tags: ['security', 'wait']

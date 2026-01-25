@@ -1,0 +1,96 @@
+# opensearch/defaults/main.yml
+---
+# OpenSearch version
+opensearch_version: "2.11.1"
+opensearch_dashboards_version: "2.11.1"
+
+# Installation paths
+opensearch_home: "/usr/share/opensearch"
+opensearch_config_dir: "/etc/opensearch"
+opensearch_data_dir: "/var/lib/opensearch"
+opensearch_log_dir: "/var/log/opensearch"
+opensearch_pid_dir: "/var/run/opensearch"
+
+# OpenSearch Dashboards paths
+dashboards_home: "/usr/share/opensearch-dashboards"
+dashboards_config_dir: "/etc/opensearch-dashboards"
+dashboards_data_dir: "/var/lib/opensearch-dashboards"
+dashboards_log_dir: "/var/log/opensearch-dashboards"
+
+# User and group
+opensearch_user: "opensearch"
+opensearch_group: "opensearch"
+
+# Network settings
+opensearch_network_host: "0.0.0.0"
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
+
+# Dashboards
+opensearch_install_dashboards: true
+dashboards_port: 5601
+dashboards_host: "0.0.0.0"
+opensearch_dashboards_node: "os-a"
+dashboards_server_name: "{{ inventory_hostname }}"
+
+# Cluster settings
+opensearch_cluster_name: "opensearch-cluster"
+opensearch_node_name: "{{ inventory_hostname }}"
+opensearch_node_roles:
+  - cluster_manager
+  - data
+  - ingest
+
+# Discovery settings (override from group_vars)
+opensearch_discovery_seed_hosts: []
+opensearch_cluster_initial_master_nodes: []
+
+# JVM heap size
+opensearch_heap_size: "1g"
+
+# System settings
+opensearch_disable_swap: true
+opensearch_vm_max_map_count: 262144
+opensearch_file_descriptors: 65536
+opensearch_max_locked_memory: unlimited
+
+# IMPORTANT: missing earlier - required for template
+opensearch_bootstrap_memory_lock: true
+
+# Security settings (toggle)
+opensearch_security_enabled: false
+opensearch_security_tls_enabled: false
+# TLS settings
+opensearch_tls_http_enabled: true
+opensearch_tls_transport_enabled: true
+opensearch_tls_autogenerate: true
+
+# Certificate filenames
+opensearch_root_ca: "root-ca.pem"
+opensearch_node_cert: "node.pem"
+opensearch_node_key: "node-key.pem"
+opensearch_admin_cert: "admin.pem"
+opensearch_admin_key: "admin-key.pem"
+
+# Admin credentials (prefer vault)
+opensearch_admin_password: "admin"
+opensearch_kibanaserver_password: "kibanaserver"
+
+# Plugin settings
+opensearch_install_plugins: []
+
+# Snapshot repository
+opensearch_snapshot_repo_enabled: false
+opensearch_snapshot_repo_name: "backup"
+opensearch_snapshot_repo_path: "/mnt/snapshots"
+opensearch_snapshot_repo_type: "fs"
+
+# Performance tuning
+opensearch_indices_query_bool_max_clause_count: 1024
+opensearch_action_destructive_requires_name: true
+
+# Download URLs (Debian + RPM)
+opensearch_download_url: "https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_version }}/opensearch-{{ opensearch_version }}-linux-x64.deb"
+dashboards_download_url: "https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_dashboards_version }}/opensearch-dashboards-{{ opensearch_dashboards_version }}-linux-x64.deb"
+opensearch_download_url_rpm: "https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_version }}/opensearch-{{ opensearch_version }}-linux-x64.rpm"
+dashboards_download_url_rpm: "https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_dashboards_version }}/opensearch-dashboards-{{ opensearch_dashboards_version }}-linux-x64.rpm"
