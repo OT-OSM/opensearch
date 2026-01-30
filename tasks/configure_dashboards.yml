@@ -1,0 +1,126 @@
+---
+# tasks/configure_dashboards.yml
+
+############################################
+# Dashboards main configuration
+############################################
+- name: Deploy OpenSearch Dashboards configuration
+  template:
+    src: opensearch-dashboards.yml.j2
+    dest: "{{ opensearch_dashboards_config_dir }}/opensearch_dashboards.yml"
+    owner: "{{ opensearch_dashboards_user }}"
+    group: "{{ opensearch_dashboards_group }}"
+    mode: '0640'
+    backup: yes
+  notify: restart opensearch-dashboards
+
+############################################
+# Dashboards TLS (ONLY when enabled)
+############################################
+- name: Configure Dashboards TLS
+  when: opensearch_dashboards_enable_tls | bool
+  block:
+
+    - name: Create Dashboards certificates directory
+      file:
+        path: "{{ opensearch_dashboards_config_dir }}/certs"
+        state: directory
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: '0750'
+
+    - name: Deploy Dashboards SSL certificate
+      copy:
+        content: "{{ opensearch_dashboards_ssl_cert }}"
+        dest: "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_dashboards_ssl_cert_filename }}"
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: '0640'
+      when: opensearch_dashboards_ssl_cert | default('') | length > 0
+      no_log: true
+      notify: restart opensearch-dashboards
+
+    - name: Deploy Dashboards SSL private key
+      copy:
+        content: "{{ opensearch_dashboards_ssl_key }}"
+        dest: "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_dashboards_ssl_key_filename }}"
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: '0600'
+      when: opensearch_dashboards_ssl_key | default('') | length > 0
+      no_log: true
+      notify: restart opensearch-dashboards
+
+- name: Copy OpenSearch CA to Dashboards
+  copy:
+    src: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_ssl_ca_filename }}"
+    dest: "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_ssl_ca_filename }}"
+    owner: "{{ opensearch_dashboards_user }}"
+    group: "{{ opensearch_dashboards_group }}"
+    mode: '0644'
+    remote_src: yes
+  when:
+    - opensearch_dashboards_enable_tls | bool
+    - opensearch_http_ssl_enabled | bool
+
+
+############################################
+# Environment variables
+############################################
+- name: Set OpenSearch Dashboards environment variables (Debian)
+  lineinfile:
+    path: /etc/default/opensearch-dashboards
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: yes
+    mode: '0644'
+  loop:
+    - { key: 'OPENSEARCH_DASHBOARDS_HOME', value: '{{ opensearch_dashboards_home_dir }}' }
+  when: ansible_os_family == "Debian"
+  notify: restart opensearch-dashboards
+
+- name: Set OpenSearch Dashboards environment variables (RedHat)
+  lineinfile:
+    path: /etc/sysconfig/opensearch-dashboards
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: yes
+    mode: '0644'
+  loop:
+    - { key: 'OPENSEARCH_DASHBOARDS_HOME', value: '{{ opensearch_dashboards_home_dir }}' }
+  when: ansible_os_family == "RedHat"
+  notify: restart opensearch-dashboards
+
+############################################
+# systemd overrides
+############################################
+- name: Create systemd override directory for Dashboards
+  file:
+    path: /etc/systemd/system/opensearch-dashboards.service.d
+    state: directory
+    mode: '0755'
+
+- name: Configure systemd service overrides for Dashboards
+  copy:
+    content: |
+      [Service]
+      TimeoutStartSec=180
+      Restart=on-failure
+      RestartSec=30
+    dest: /etc/systemd/system/opensearch-dashboards.service.d/override.conf
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart opensearch-dashboards
+
+############################################
+# Permissions
+############################################
+- name: Ensure Dashboards configuration directory permissions are correct
+  file:
+    path: "{{ opensearch_dashboards_config_dir }}"
+    state: directory
+    owner: "{{ opensearch_dashboards_user }}"
+    group: "{{ opensearch_dashboards_group }}"
+    mode: '0750'
+    recurse: yes

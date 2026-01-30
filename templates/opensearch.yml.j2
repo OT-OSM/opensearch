@@ -1,0 +1,75 @@
+cluster.name: {{ opensearch_cluster_name }}
+node.name: {{ opensearch_node_name }}
+
+network.host: {{ opensearch_network_host }}
+{% if opensearch_network_publish_host is defined %}
+network.publish_host: {{ opensearch_network_publish_host }}
+{% endif %}
+
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+
+node.roles: {{ opensearch_node_roles }}
+
+discovery.seed_hosts:
+{% for host in opensearch_discovery_seed_hosts %}
+  - {{ host }}
+{% endfor %}
+
+{% if opensearch_cluster_manager_nodes is defined and
+      opensearch_cluster_manager_nodes | length > 0 %}
+cluster.initial_cluster_manager_nodes:
+{% for node in opensearch_cluster_manager_nodes %}
+  - {{ node }}
+{% endfor %}
+{% endif %}
+
+path.data: {{ opensearch_data_dir }}
+path.logs: {{ opensearch_log_dir }}
+
+bootstrap.memory_lock: true
+
+plugins.security.disabled: {{ (not opensearch_security_enabled) | lower }}
+
+########################################
+# SECURITY – DEMO / TEST MODE FLAGS
+########################################
+{% if opensearch_security_enabled | bool %}
+plugins.security.allow_unsafe_democertificates: {{ opensearch_security_allow_unsafe_democertificates | default(false) | lower }}
+plugins.security.allow_default_init_securityindex: {{ opensearch_security_allow_default_init_securityindex | default(false) | lower }}
+{% endif %}
+
+########################################
+# HTTP TLS
+########################################
+{% if opensearch_security_enabled and opensearch_http_ssl_enabled | bool %}
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: {{ opensearch_ssl_cert_filename }}
+plugins.security.ssl.http.pemkey_filepath: {{ opensearch_ssl_key_filename }}
+plugins.security.ssl.http.pemtrustedcas_filepath: {{ opensearch_ssl_ca_filename }}
+{% else %}
+plugins.security.ssl.http.enabled: false
+{% endif %}
+
+########################################
+# TRANSPORT TLS (node-to-node)
+########################################
+{% if opensearch_security_enabled and opensearch_transport_ssl_enabled | bool %}
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: {{ opensearch_ssl_cert_filename }}
+plugins.security.ssl.transport.pemkey_filepath: {{ opensearch_ssl_key_filename }}
+plugins.security.ssl.transport.pemtrustedcas_filepath: {{ opensearch_ssl_ca_filename }}
+
+# >>> IMPORTANT FOR DEMO / IP BASED CLUSTERS <<<
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+{% else %}
+plugins.security.ssl.transport.enabled: false
+{% endif %}
+
+{% if opensearch_security_allow_unsafe_democertificates | bool %}
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn_list %}
+  - "{{ dn }}"
+{% endfor %}
+{% endif %}

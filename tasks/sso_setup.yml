@@ -1,0 +1,150 @@
+---
+# tasks/sso_setup.yml - Setup SSO/SAML/OIDC Authentication
+
+- name: Include SSO configuration in security config
+  blockinfile:
+    path: "{{ opensearch_security_config_dir }}/config.yml"
+    marker: "# {mark} ANSIBLE MANAGED SSO CONFIGURATION"
+    block: |
+      {% if opensearch_saml_enabled | bool %}
+              saml:
+                enabled: true
+                order: 1
+                http_enabled: {{ opensearch_http_ssl_enabled | lower }}
+                transport_enabled: {{ opensearch_transport_ssl_enabled | lower }}
+                idp:
+                  metadata_url: "{{ opensearch_saml_metadata_url }}"
+                  entity_id: "{{ opensearch_saml_entity_id }}"
+                sp:
+                  entity_id: "{{ opensearch_saml_entity_id }}"
+                  forceAuthn: false
+                kibana_url: "{% if opensearch_dashboards_enable_tls %}https{% else %}http{% endif %}://{{ ansible_default_ipv4.address }}:{{ opensearch_dashboards_port }}"
+                roles_key: "{{ opensearch_saml_roles_key }}"
+                subject_key: "{{ opensearch_saml_subject_key }}"
+                exchange_key: "{{ opensearch_saml_exchange_key }}"
+      {% endif %}
+      {% if opensearch_oidc_enabled | bool %}
+              openid:
+                enabled: true
+                order: 1
+                http_enabled: {{ opensearch_http_ssl_enabled | lower }}
+                transport_enabled: {{ opensearch_transport_ssl_enabled | lower }}
+                connect_url: "{{ opensearch_oidc_connect_url }}"
+                client_id: "{{ opensearch_oidc_client_id }}"
+                client_secret: "{{ opensearch_oidc_client_secret }}"
+                scope: "{{ opensearch_oidc_scope }}"
+                subject_key: "preferred_username"
+                roles_key: "roles"
+      {% endif %}
+      {% if opensearch_jwt_enabled | bool %}
+              jwt:
+                enabled: true
+                order: 1
+                http_enabled: {{ opensearch_http_ssl_enabled | lower }}
+                transport_enabled: {{ opensearch_transport_ssl_enabled | lower }}
+                signing_key: "{{ opensearch_jwt_signing_key }}"
+                subject_key: "sub"
+                roles_key: "roles"
+                jwt_header: "{{ opensearch_jwt_header }}"
+                jwt_url_parameter: "{{ opensearch_jwt_url_parameter }}"
+      {% endif %}
+    create: yes
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+  notify:
+    - restart opensearch
+    - apply security configuration
+  no_log: true
+  tags:
+    - sso
+    - security
+
+- name: Configure Dashboards for SAML
+  when: opensearch_saml_enabled | bool
+  block:
+    - name: Add SAML configuration to Dashboards
+      blockinfile:
+        path: "{{ opensearch_dashboards_config_dir }}/opensearch_dashboards.yml"
+        marker: "# {mark} ANSIBLE MANAGED SAML CONFIGURATION"
+        block: |
+          opensearch_security.auth.type: "saml"
+          opensearch_security.auth.multiple_auth_enabled: true
+          server.xsrf.whitelist: ["/_plugins/_security/saml/acs"]
+        create: yes
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: '0640'
+      notify: restart opensearch-dashboards
+  tags:
+    - sso
+    - saml
+    - dashboards
+
+- name: Configure Dashboards for OIDC
+  when: opensearch_oidc_enabled | bool
+  block:
+    - name: Add OIDC configuration to Dashboards
+      blockinfile:
+        path: "{{ opensearch_dashboards_config_dir }}/opensearch_dashboards.yml"
+        marker: "# {mark} ANSIBLE MANAGED OIDC CONFIGURATION"
+        block: |
+          opensearch_security.auth.type: "openid"
+          opensearch_security.auth.multiple_auth_enabled: true
+          opensearch_security.openid.connect_url: "{{ opensearch_oidc_connect_url }}"
+          opensearch_security.openid.client_id: "{{ opensearch_oidc_client_id }}"
+          opensearch_security.openid.client_secret: "{{ opensearch_oidc_client_secret }}"
+          opensearch_security.openid.scope: "{{ opensearch_oidc_scope }}"
+          opensearch_security.openid.base_redirect_url: "{% if opensearch_dashboards_enable_tls %}https{% else %}http{% endif %}://{{ ansible_default_ipv4.address }}:{{ opensearch_dashboards_port }}"
+        create: yes
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: '0640'
+      notify: restart opensearch-dashboards
+  no_log: true
+  tags:
+    - sso
+    - oidc
+    - dashboards
+
+- name: Update roles mapping for SSO
+  blockinfile:
+    path: "{{ opensearch_security_config_dir }}/roles_mapping.yml"
+    marker: "# {mark} ANSIBLE MANAGED SSO ROLES MAPPING"
+    block: |
+      all_access:
+        reserved: false
+        backend_roles:
+          - "admin"
+        description: "Maps admin to all_access"
+
+      kibana_user:
+        reserved: false
+        backend_roles:
+          - "kibanauser"
+        description: "Maps kibanauser role"
+
+      readall:
+        reserved: false
+        backend_roles:
+          - "readall"
+        description: "Maps readall role"
+    create: yes
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+  notify: apply security configuration
+  tags:
+    - sso
+    - security
+    - roles
+
+- name: Display SSO configuration summary
+  debug:
+    msg:
+      - "SSO Type: {{ opensearch_sso_type }}"
+      - "SSO Enabled: {{ opensearch_sso_enabled }}"
+      - "{% if opensearch_saml_enabled %}SAML Entity ID: {{ opensearch_saml_entity_id }}{% endif %}"
+      - "{% if opensearch_oidc_enabled %}OIDC Client ID: {{ opensearch_oidc_client_id }}{% endif %}"
+  tags:
+    - sso

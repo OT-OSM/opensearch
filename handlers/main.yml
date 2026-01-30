@@ -1,9 +1,32 @@
 ---
 # handlers file for opensearch
 
-- name: Restart opensearch
+- name: reload systemd
   systemd:
+    daemon_reload: yes
+
+- name: restart opensearch
+  service:
     name: opensearch
     state: restarted
-    enabled: true
-  become: true
+  throttle: 1
+  listen: restart opensearch
+
+- name: restart opensearch-dashboards
+  service:
+    name: opensearch-dashboards
+    state: restarted
+  listen: restart opensearch-dashboards
+
+# =====================================================
+# COMMON WAIT (used before securityadmin if required)
+# =====================================================
+- name: wait for opensearch before securityadmin
+  listen: apply security configuration
+  wait_for:
+    host: "{{ opensearch_network_publish_host }}"
+    port: 9200
+    delay: 10
+    timeout: 180
+  run_once: true
+  delegate_to: "{{ groups['opensearch'][0] }}"

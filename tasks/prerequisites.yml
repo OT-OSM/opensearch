@@ -1,0 +1,194 @@
+---
+# tasks/prerequisites.yml - System prerequisites and preparation
+
+#################################
+# Debian / Ubuntu
+#################################
+- name: Update apt cache (Debian/Ubuntu)
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Install prerequisites (Debian/Ubuntu)
+  apt:
+    name: "{{ opensearch_dependencies }}"
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+#################################
+# RedHat / Amazon Linux
+#################################
+- name: Remove curl if present (Amazon Linux safety)
+  yum:
+    name: curl
+    state: absent
+  when: ansible_os_family == "RedHat"
+  tags: [packages]
+
+- name: Install prerequisites (RedHat/CentOS/Amazon Linux)
+  yum:
+    name: "{{ opensearch_dependencies }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [packages]
+
+#################################
+# Users & Groups
+#################################
+- name: Create OpenSearch group
+  group:
+    name: "{{ opensearch_group }}"
+    state: present
+    system: yes
+  tags: [users]
+
+- name: Create OpenSearch user
+  user:
+    name: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    home: "{{ opensearch_home_dir }}"
+    shell: /bin/bash
+    system: yes
+    create_home: no
+  tags: [users]
+
+- name: Create OpenSearch Dashboards group
+  group:
+    name: "{{ opensearch_dashboards_group }}"
+    state: present
+    system: yes
+  when: opensearch_dashboards_enabled | bool
+  tags: [users]
+
+- name: Create OpenSearch Dashboards user
+  user:
+    name: "{{ opensearch_dashboards_user }}"
+    group: "{{ opensearch_dashboards_group }}"
+    home: "{{ opensearch_dashboards_home_dir }}"
+    shell: /bin/bash
+    system: yes
+    create_home: no
+  when: opensearch_dashboards_enabled | bool
+  tags: [users]
+
+#################################
+# Directories
+#################################
+- name: Create OpenSearch directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0755'
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_dir }}"
+    - "{{ opensearch_log_dir }}"
+    - "{{ opensearch_pid_dir }}"
+    - "{{ opensearch_ssl_certificate_path }}"
+    - "{{ opensearch_security_config_dir }}"
+  tags: [directories]
+
+- name: Create OpenSearch Dashboards directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_dashboards_user }}"
+    group: "{{ opensearch_dashboards_group }}"
+    mode: '0755'
+  loop:
+    - "{{ opensearch_dashboards_config_dir }}"
+    - "{{ opensearch_dashboards_log_dir }}"
+  when: opensearch_dashboards_enabled | bool
+  tags: [directories]
+
+#################################
+# System tuning
+#################################
+- name: Configure system limits for OpenSearch
+  pam_limits:
+    domain: "{{ opensearch_user }}"
+    limit_type: "{{ item.limit_type }}"
+    limit_item: "{{ item.limit_item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { limit_type: soft, limit_item: nofile, value: "{{ opensearch_system_nofile_soft }}" }
+    - { limit_type: hard, limit_item: nofile, value: "{{ opensearch_system_nofile_hard }}" }
+    - { limit_type: soft, limit_item: nproc, value: "{{ opensearch_system_nproc_soft }}" }
+    - { limit_type: hard, limit_item: nproc, value: "{{ opensearch_system_nproc_hard }}" }
+    - { limit_type: soft, limit_item: memlock, value: "{{ opensearch_system_memlock_soft }}" }
+    - { limit_type: hard, limit_item: memlock, value: "{{ opensearch_system_memlock_hard }}" }
+  tags: [system_limits]
+
+- name: Set vm.max_map_count
+  sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: yes
+  tags: [system_tuning]
+
+#################################
+# Repository setup
+#################################
+- name: Add OpenSearch APT repository key (Debian/Ubuntu)
+  apt_key:
+    url: "{{ opensearch_repo_key_url }}"
+    state: present
+    keyring: /usr/share/keyrings/opensearch.gpg
+  when: ansible_os_family == "Debian"
+  tags: [repository]
+
+- name: Add OpenSearch APT repository (Debian/Ubuntu)
+  apt_repository:
+    repo: "{{ opensearch_repo_url }}"
+    state: present
+    filename: opensearch
+  when: ansible_os_family == "Debian"
+  tags: [repository]
+
+# ✅ SHA1-safe GPG import (RedHat / Amazon Linux 2023)
+- name: Import OpenSearch GPG key (RedHat/Amazon Linux)
+  shell: |
+    curl -fsSL {{ opensearch_repo_key_url }} | gpg --dearmor -o {{ opensearch_repo_gpgkey_path }}
+  args:
+    creates: "{{ opensearch_repo_gpgkey_path }}"
+  when: ansible_os_family == "RedHat"
+  tags: [repository]
+
+- name: Add OpenSearch YUM repository (RedHat/Amazon Linux)
+  yum_repository:
+    name: opensearch
+    description: OpenSearch Repository
+    baseurl: "{{ opensearch_repo_baseurl }}"
+    gpgcheck: yes
+    gpgkey: "file://{{ opensearch_repo_gpgkey_path }}"
+    enabled: yes
+  when: ansible_os_family == "RedHat"
+  tags: [repository]
+#################################
+# OpenSearch Dashboards Repository
+#################################
+
+- name: Add OpenSearch Dashboards APT repository (Debian/Ubuntu)
+  apt_repository:
+    repo: "{{ opensearch_dashboards_repo_url }}"
+    state: present
+    filename: opensearch-dashboards
+  when: ansible_os_family == "Debian"
+  tags: [repository]
+
+- name: Add OpenSearch Dashboards YUM repository (RedHat/Amazon Linux)
+  yum_repository:
+    name: opensearch-dashboards
+    description: OpenSearch Dashboards Repository
+    baseurl: "{{ opensearch_dashboards_repo_baseurl }}"
+    gpgcheck: yes
+    gpgkey: "file://{{ opensearch_repo_gpgkey_path }}"
+    enabled: yes
+  when: ansible_os_family == "RedHat"
+  tags: [repository]

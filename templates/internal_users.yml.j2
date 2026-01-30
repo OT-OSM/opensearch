@@ -1,0 +1,17 @@
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+{{ opensearch_admin_username }}:
+  hash: "{{ opensearch_admin_password_hash }}"
+  reserved: true
+  backend_roles:
+    - admin
+  description: "Admin user"
+
+{{ opensearch_kibanaserver_username }}:
+  hash: "{{ opensearch_kibanaserver_password_hash }}"
+  reserved: true
+  backend_roles:
+    - kibana_server
+  description: "Dashboards service user"

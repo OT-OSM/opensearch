@@ -1,0 +1,198 @@
+---
+# tasks/snapshot_setup.yml - Setup Snapshot Repository
+
+- name: Configure S3 snapshot repository
+  when: opensearch_snapshot_s3_enabled | bool
+  block:
+    - name: Install S3 repository plugin
+      command: "{{ opensearch_home_dir }}/bin/opensearch-plugin install repository-s3 --batch"
+      args:
+        creates: "{{ opensearch_home_dir }}/plugins/repository-s3"
+      notify: restart opensearch
+      tags:
+        - plugins
+
+    - name: Create S3 keystore entries
+      shell: |
+        echo "{{ opensearch_snapshot_s3_access_key }}" | {{ opensearch_home_dir }}/bin/opensearch-keystore add --stdin s3.client.default.access_key --force
+        echo "{{ opensearch_snapshot_s3_secret_key }}" | {{ opensearch_home_dir }}/bin/opensearch-keystore add --stdin s3.client.default.secret_key --force
+      become_user: "{{ opensearch_user }}"
+      no_log: true
+      notify: restart opensearch
+      changed_when: true
+
+    - name: Ensure keystore has correct permissions
+      file:
+        path: "{{ opensearch_config_dir }}/opensearch.keystore"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0600'
+
+    - name: Wait for OpenSearch to be ready after restart
+      wait_for:
+        host: "{{ opensearch_network_host }}"
+        port: "{{ opensearch_http_port }}"
+        delay: 15
+        timeout: 300
+
+    - name: Create S3 snapshot repository
+      uri:
+        url: "{% if opensearch_http_ssl_enabled %}https{% else %}http{% endif %}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repository_name }}"
+        method: PUT
+        user: "{{ opensearch_admin_username }}"
+        password: "{{ opensearch_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opensearch_ssl_verification_mode != 'none' }}"
+        body_format: json
+        body:
+          type: "s3"
+          settings:
+            bucket: "{{ opensearch_snapshot_s3_bucket }}"
+            region: "{{ opensearch_snapshot_s3_region }}"
+            base_path: "{{ opensearch_snapshot_s3_base_path }}"
+            compress: "{{ opensearch_snapshot_s3_compress }}"
+            server_side_encryption: "{{ opensearch_snapshot_s3_server_side_encryption }}"
+            {% if opensearch_snapshot_s3_endpoint | length > 0 %}
+            endpoint: "{{ opensearch_snapshot_s3_endpoint }}"
+            protocol: "{{ opensearch_snapshot_s3_protocol }}"
+            {% endif %}
+        status_code: 200
+      register: s3_repo_result
+      retries: 3
+      delay: 10
+      until: s3_repo_result.status == 200
+  tags:
+    - snapshot
+    - s3
+
+- name: Configure filesystem snapshot repository
+  when: opensearch_snapshot_fs_enabled | bool
+  block:
+    - name: Ensure snapshot directory exists
+      file:
+        path: "{{ opensearch_snapshot_fs_location }}"
+        state: directory
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0755'
+
+    - name: Add path.repo to opensearch.yml
+      lineinfile:
+        path: "{{ opensearch_config_dir }}/opensearch.yml"
+        regexp: '^path\.repo:'
+        line: 'path.repo: ["{{ opensearch_snapshot_fs_location }}"]'
+        create: yes
+      notify: restart opensearch
+
+    - name: Wait for OpenSearch to be ready after restart
+      wait_for:
+        host: "{{ opensearch_network_host }}"
+        port: "{{ opensearch_http_port }}"
+        delay: 15
+        timeout: 300
+
+    - name: Create filesystem snapshot repository
+      uri:
+        url: "{% if opensearch_http_ssl_enabled %}https{% else %}http{% endif %}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repository_name }}"
+        method: PUT
+        user: "{{ opensearch_admin_username }}"
+        password: "{{ opensearch_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opensearch_ssl_verification_mode != 'none' }}"
+        body_format: json
+        body:
+          type: "fs"
+          settings:
+            location: "{{ opensearch_snapshot_fs_location }}"
+            compress: true
+        status_code: 200
+      register: fs_repo_result
+      retries: 3
+      delay: 10
+      until: fs_repo_result.status == 200
+  tags:
+    - snapshot
+    - filesystem
+
+- name: Configure Azure snapshot repository
+  when: opensearch_snapshot_azure_enabled | bool
+  block:
+    - name: Install Azure repository plugin
+      command: "{{ opensearch_home_dir }}/bin/opensearch-plugin install repository-azure --batch"
+      args:
+        creates: "{{ opensearch_home_dir }}/plugins/repository-azure"
+      notify: restart opensearch
+      tags:
+        - plugins
+
+    - name: Create Azure keystore entries
+      shell: |
+        echo "{{ opensearch_snapshot_azure_account }}" | {{ opensearch_home_dir }}/bin/opensearch-keystore add --stdin azure.client.default.account --force
+        echo "{{ opensearch_snapshot_azure_key }}" | {{ opensearch_home_dir }}/bin/opensearch-keystore add --stdin azure.client.default.key --force
+      become_user: "{{ opensearch_user }}"
+      no_log: true
+      notify: restart opensearch
+      changed_when: true
+
+    - name: Ensure keystore has correct permissions
+      file:
+        path: "{{ opensearch_config_dir }}/opensearch.keystore"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0600'
+
+    - name: Wait for OpenSearch to be ready after restart
+      wait_for:
+        host: "{{ opensearch_network_host }}"
+        port: "{{ opensearch_http_port }}"
+        delay: 15
+        timeout: 300
+
+    - name: Create Azure snapshot repository
+      uri:
+        url: "{% if opensearch_http_ssl_enabled %}https{% else %}http{% endif %}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repository_name }}"
+        method: PUT
+        user: "{{ opensearch_admin_username }}"
+        password: "{{ opensearch_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opensearch_ssl_verification_mode != 'none' }}"
+        body_format: json
+        body:
+          type: "azure"
+          settings:
+            container: "{{ opensearch_snapshot_azure_container }}"
+            base_path: "{{ opensearch_snapshot_azure_base_path }}"
+            compress: true
+        status_code: 200
+      register: azure_repo_result
+      retries: 3
+      delay: 10
+      until: azure_repo_result.status == 200
+  tags:
+    - snapshot
+    - azure
+
+- name: Verify snapshot repository
+  uri:
+    url: "{% if opensearch_http_ssl_enabled %}https{% else %}http{% endif %}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_snapshot/{{ opensearch_snapshot_repository_name }}"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opensearch_ssl_verification_mode != 'none' }}"
+    status_code: 200
+  register: snapshot_verify
+  tags:
+    - snapshot
+    - verification
+
+- name: Display snapshot repository configuration
+  debug:
+    msg:
+      - "Snapshot repository configured successfully"
+      - "Repository name: {{ opensearch_snapshot_repository_name }}"
+      - "Repository type: {{ opensearch_snapshot_type }}"
+      - "Repository details: {{ snapshot_verify.json }}"
+  when: snapshot_verify is defined
+  tags:
+    - snapshot

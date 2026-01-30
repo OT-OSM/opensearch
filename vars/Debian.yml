@@ -1,0 +1,28 @@
+---
+# vars file for opensearch - Debian/Ubuntu
+
+opensearch_repo_key_url: "https://artifacts.opensearch.org/publickeys/opensearch.pgp"
+
+opensearch_repo_url: >
+  deb [signed-by=/usr/share/keyrings/opensearch.gpg]
+  https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_version.split('.')[0] }}.x/apt
+  stable main
+
+opensearch_dashboards_repo_url: >
+  deb [signed-by=/usr/share/keyrings/opensearch.gpg]
+  https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_dashboards_version.split('.')[0] }}.x/apt
+  stable main
+
+opensearch_package_name: "opensearch"
+opensearch_dashboards_package_name: "opensearch-dashboards"
+
+opensearch_dependencies:
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - curl
+  - wget
+
+opensearch_package_manager: "apt"
+opensearch_service_manager: "systemd"

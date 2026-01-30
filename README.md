@@ -1,98 +1,38 @@
-## Ansible Role: Opensearch
+Role Name
+=========
 
-Ansible role to configure Opensearch standalone and cluster integration
+A brief description of the role goes here.
 
-Some of the highlighting features are:-
+Requirements
+------------
 
-  - Standalone setup of Opensearch
-  - Cluster setup of Opensearch
-  - Usermanagement 
- 
-### Supported OS
+Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
 
-Ubuntu:
-  - focal
-  - bionic
+Role Variables
+--------------
 
-Centos:
-  - 7
-  - 8
-  
-AmaozonLinux:2
+A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
 
-### Requirements
+Dependencies
+------------
 
-**Java**
+A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
 
-### Roles Variables
+Example Playbook
+----------------
 
-#### Mandatory Variables
+Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
 
-|**Variable**|**Default Value**|**Possible Values**|**Description**|
-|------------|-----------------|-------------------|---------------|
-| Standalone | true | <ul><li>true</li><li>false</li></ul> | boolean | Setup opensearch standalone if this value is true then the value of cluster should be false|
-| Cluster | false | <ul><li>true</li><li>false</li></ul> | boolean | Setup opensearch Cluster if this value is true then the value of standalone should be false |
-| admin_password | Strong@321 | *Password* | string | Password for opensearch username |
+    - hosts: servers
+      roles:
+         - { role: username.rolename, x: 42 }
 
+License
+-------
 
+BSD
 
-#### Optional Variables
+Author Information
+------------------
 
-|**Variable**|**Default Value**|**Possible Values**|**Description**|
-|------------|-----------------|-------------------|---------------|
-| Version | 1.3.0 | *opensearch Version* | string | Default Version of opensearch |
-| VmMaxMapCountValue | 262144 | Count value | String | Setting vm.max_map_count in opensearch nodes |
-| FsFileMaxValue | 65536 | Count value | String | Setting file max value on opensearch nodes |
-| Min_HeapSize | 2 | Count value | String | Setting minimum heap size|
-| Max_HeapSize | 2 | Count value | String | Setting maximum heap size|
-| clusterName | my-application | Application name | String | You can use any application name|
-| OpenSearchPort | 9200 | Port number | String | can use port no as per the architecture|
-| LocalSystemDest | /tmp/opensearch-nodecerts | Path of local system | String | Certificates are generated in local system so have to give a path to create certificate|
-
-
-
-### Usage
-
-The inventory for Opensearch role should look like this:-
-
-```ini
-[opensearch]
-opensearchnode1 ansible_ssh_host=3.18.112.95 node_type=master,data 
-opensearchnode2 ansible_ssh_host=18.222.251.138 node_type=master,data 
-opensearchnode3 ansible_ssh_host=18.220.251.141 node_type=master,data 
-
-[opensearch:vars]
-ansible_ssh_user=ubuntu
-ansible_ssh_private_key_file= 
-
-[cluster_nodes]
-opensearchnode1
-opensearchnode2
-opensearchnode3
-
-[cluster_master_nodes]
-opensearchnode1
-opensearchnode2
-opensearchnode3
-```
-
-
-An example playbook should look like this:-
-
-```yaml
----
-- name: opensearch
-  hosts: all
-  gather_facts: true
-  roles:
-   - { role: opstree_devops.opensearch }
-```
-
-and for running the ansible role, we will use ansible cli.
-
-```shell
-ansible-playbook -i tests/inventory tests/test.yml
-```
-## Authors
-
-**[Varghese Kurian](varghese.palamoottil@opstree.com)**
+An optional section for the role authors to include contact information, or a website (HTML is not allowed).
