@@ -1,0 +1,218 @@
+---
+# tasks/security_setup.yml - Setup OpenSearch Security Plugin (PROD READY)
+
+- name: Generate admin password hash
+  command: >
+    {{ opensearch_home_dir }}/plugins/opensearch-security/tools/hash.sh
+    -p {{ vault_opensearch_admin_password }}
+  environment:
+    OPENSEARCH_JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+    JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+  register: admin_hash_out
+  run_once: true
+  delegate_to: "{{ groups['opensearch'][0] }}"
+  changed_when: false
+  when: opensearch_security_enabled | bool
+
+- name: Generate dashboards password hash
+  command: >
+    {{ opensearch_home_dir }}/plugins/opensearch-security/tools/hash.sh
+    -p {{ vault_opensearch_dashboards_password }}
+  environment:
+    OPENSEARCH_JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+    JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+  register: dashboards_hash_out
+  run_once: true
+  delegate_to: "{{ groups['opensearch'][0] }}"
+  changed_when: false
+  when: opensearch_security_enabled | bool
+
+
+- name: Set password hash facts
+  set_fact:
+    opensearch_admin_password_hash: "{{ admin_hash_out.stdout_lines[-1] | trim }}"
+    opensearch_kibanaserver_password_hash: "{{ dashboards_hash_out.stdout_lines[-1] | trim }}"
+  when: opensearch_security_enabled | bool
+
+
+- name: Create security configuration and cert directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0750'
+  loop:
+    - "{{ opensearch_security_config_dir }}"
+    - "{{ opensearch_ssl_certificate_path }}"
+  tags:
+    - security
+    - directories
+  when: opensearch_security_enabled | bool
+
+
+# -------------------------------
+# TLS certificates (only if TLS enabled)
+# -------------------------------
+- name: Deploy SSL/TLS certificates
+  when:
+    - opensearch_security_enabled | bool
+    - opensearch_enable_tls | bool
+  block:
+
+    - name: Deploy node certificate
+      copy:
+        content: "{{ opensearch_ssl_cert }}"
+        dest: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_ssl_cert_filename }}"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0640'
+      when: opensearch_ssl_cert | length > 0
+      no_log: true
+      notify: restart opensearch
+
+    - name: Deploy node private key
+      copy:
+        content: "{{ opensearch_ssl_key }}"
+        dest: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_ssl_key_filename }}"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0600'
+      when: opensearch_ssl_key | length > 0
+      no_log: true
+      notify: restart opensearch
+
+    - name: Deploy root CA certificate
+      copy:
+        content: "{{ opensearch_ssl_ca }}"
+        dest: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_ssl_ca_filename }}"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0644'
+      when: opensearch_ssl_ca | length > 0
+      no_log: true
+      notify: restart opensearch
+
+    - name: Deploy admin certificate
+      copy:
+        content: "{{ opensearch_admin_cert }}"
+        dest: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_admin_cert_filename }}"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0640'
+      when: opensearch_admin_cert | length > 0
+      no_log: true
+
+    - name: Deploy admin private key
+      copy:
+        content: "{{ opensearch_admin_key }}"
+        dest: "{{ opensearch_ssl_certificate_path }}/{{ opensearch_admin_key_filename }}"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: '0600'
+      when: opensearch_admin_key | length > 0
+      no_log: true
+
+  tags:
+    - security
+    - tls
+    - certificates
+
+
+# -------------------------------
+# Security plugin configs
+# -------------------------------
+- name: Deploy security plugin configuration
+  template:
+    src: config.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/config.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+    backup: yes
+  notify: restart opensearch
+  tags:
+    - security
+    - configuration
+  when: opensearch_security_enabled | bool
+
+
+- name: Deploy internal users configuration
+  template:
+    src: internal_users.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/internal_users.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+    backup: yes
+  no_log: true
+  tags:
+    - security
+    - configuration
+  when: opensearch_security_enabled | bool
+
+
+- name: Deploy roles mapping configuration
+  template:
+    src: roles_mapping.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/roles_mapping.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+    backup: yes
+  tags:
+    - security
+    - configuration
+  when: opensearch_security_enabled | bool
+
+
+# NOTE:
+# roles.yml, action_groups.yml, tenants.yml
+# are intentionally NOT managed
+
+
+- name: Copy security admin script
+  copy:
+    src: "{{ opensearch_home_dir }}/plugins/opensearch-security/tools/securityadmin.sh"
+    dest: "{{ opensearch_home_dir }}/plugins/opensearch-security/tools/securityadmin.sh"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0750'
+    remote_src: yes
+  tags:
+    - security
+    - scripts
+  when: opensearch_security_enabled | bool
+
+
+- name: Flush handlers before running securityadmin
+  meta: flush_handlers
+  when: opensearch_security_enabled | bool
+
+
+# -------------------------------
+# Initialize security (controlled run)
+# -------------------------------
+- name: Initialize OpenSearch Security (run securityadmin)
+  environment:
+    OPENSEARCH_JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+    JAVA_HOME: "{{ opensearch_home_dir }}/jdk"
+  command: >
+    {{ opensearch_home_dir }}/plugins/opensearch-security/tools/securityadmin.sh
+    -cd {{ opensearch_security_config_dir }}
+    -cacert {{ opensearch_ssl_certificate_path }}/{{ opensearch_ssl_ca_filename }}
+    -cert {{ opensearch_ssl_certificate_path }}/{{ opensearch_admin_cert_filename }}
+    -key {{ opensearch_ssl_certificate_path }}/{{ opensearch_admin_key_filename }}
+    -icl
+    -nhnv
+    -h {{ opensearch_network_publish_host }}
+  when:
+    - opensearch_security_enabled | bool
+    - opensearch_enable_tls | bool
+    - opensearch_initialize_security | default(false) | bool
+  run_once: true
+  delegate_to: "{{ groups['opensearch'][0] }}"
+  register: security_init_result
+  retries: 10
+  delay: 10
+  until: security_init_result.rc == 0

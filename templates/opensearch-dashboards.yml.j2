@@ -1,0 +1,50 @@
+server.host: "{{ opensearch_dashboards_host }}"
+server.port: {{ opensearch_dashboards_port }}
+
+server.name: "{{ inventory_hostname }}"
+
+############################################
+# Dashboards TLS (server side)
+############################################
+{% if opensearch_dashboards_enable_tls | bool %}
+server.ssl.enabled: true
+server.ssl.certificate: "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_dashboards_ssl_cert_filename }}"
+server.ssl.key: "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_dashboards_ssl_key_filename }}"
+{% else %}
+server.ssl.enabled: false
+{% endif %}
+
+############################################
+# OpenSearch connection
+############################################
+opensearch.hosts:
+{% for host in opensearch_dashboards_opensearch_hosts %}
+  - "{{ host }}"
+{% endfor %}
+
+############################################
+# OpenSearch TLS (client side)
+############################################
+{% if opensearch_http_ssl_enabled | bool %}
+opensearch.ssl.verificationMode: {{ opensearch_dashboards_ssl_verification_mode | default("certificate") }}
+opensearch.ssl.certificateAuthorities:
+  - "{{ opensearch_dashboards_config_dir }}/certs/{{ opensearch_ssl_ca_filename }}"
+{% endif %}
+
+############################################
+# Dashboards service user
+############################################
+opensearch.username: "{{ opensearch_kibanaserver_username }}"
+opensearch.password: "{{ opensearch_kibanaserver_password }}"
+
+############################################
+# Security / multi tenancy
+############################################
+opensearch_security.multitenancy.enabled: true
+opensearch_security.multitenancy.tenants.preferred:
+  - Global
+  - Private
+
+############################################
+# SSO placeholder (handled by security plugin)
+############################################

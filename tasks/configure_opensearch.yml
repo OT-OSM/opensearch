@@ -1,0 +1,176 @@
+---
+# tasks/configure_opensearch.yml - Configure OpenSearch
+
+- name: Deploy JVM options configuration
+  template:
+    src: jvm.options.j2
+    dest: "{{ opensearch_config_dir }}/jvm.options"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+    backup: yes
+  notify: restart opensearch
+  tags:
+    - configuration
+    - jvm
+
+- name: Configure log4j2 properties
+  copy:
+    content: |
+      status = error
+
+      appender.console.type = Console
+      appender.console.name = console
+      appender.console.layout.type = PatternLayout
+      appender.console.layout.pattern = [%d{ISO8601}][%-5p][%-25c{1.}] [%node_name]%marker %m%n
+
+      appender.rolling.type = RollingFile
+      appender.rolling.name = rolling
+      appender.rolling.fileName = ${sys:opensearch.logs.base_path}${sys:file.separator}${sys:opensearch.logs.cluster_name}.log
+      appender.rolling.layout.type = PatternLayout
+      appender.rolling.layout.pattern = [%d{ISO8601}][%-5p][%-25c{1.}] [%node_name]%marker %.-10000m%n
+      appender.rolling.filePattern = ${sys:opensearch.logs.base_path}${sys:file.separator}${sys:opensearch.logs.cluster_name}-%d{yyyy-MM-dd}-%i.log.gz
+      appender.rolling.policies.type = Policies
+      appender.rolling.policies.time.type = TimeBasedTriggeringPolicy
+      appender.rolling.policies.time.interval = 1
+      appender.rolling.policies.time.modulate = true
+      appender.rolling.policies.size.type = SizeBasedTriggeringPolicy
+      appender.rolling.policies.size.size = 256MB
+      appender.rolling.strategy.type = DefaultRolloverStrategy
+      appender.rolling.strategy.fileIndex = nomax
+      appender.rolling.strategy.action.type = Delete
+      appender.rolling.strategy.action.basepath = ${sys:opensearch.logs.base_path}
+      appender.rolling.strategy.action.condition.type = IfFileName
+      appender.rolling.strategy.action.condition.glob = ${sys:opensearch.logs.cluster_name}-*
+      appender.rolling.strategy.action.condition.nested_condition.type = IfAccumulatedFileSize
+      appender.rolling.strategy.action.condition.nested_condition.exceeds = 2GB
+
+      rootLogger.level = {{ opensearch_log_level }}
+      rootLogger.appenderRef.console.ref = console
+      rootLogger.appenderRef.rolling.ref = rolling
+
+      logger.deprecation.name = org.opensearch.deprecation
+      logger.deprecation.level = warn
+      logger.deprecation.appenderRef.deprecation_rolling.ref = deprecation_rolling
+      logger.deprecation.additivity = false
+    dest: "{{ opensearch_config_dir }}/log4j2.properties"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+  notify: restart opensearch
+  tags:
+    - configuration
+    - logging
+
+- name: Create systemd override directory
+  file:
+    path: /etc/systemd/system/opensearch.service.d
+    state: directory
+    mode: '0755'
+  tags:
+    - systemd
+
+- name: Configure systemd service overrides
+  copy:
+    content: |
+      [Service]
+      LimitNOFILE={{ opensearch_system_nofile_hard }}
+      LimitNPROC={{ opensearch_system_nproc_hard }}
+      LimitMEMLOCK=infinity
+      TimeoutStartSec=180
+    dest: /etc/systemd/system/opensearch.service.d/override.conf
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart opensearch
+  tags:
+    - systemd
+
+- name: Set OpenSearch environment variables
+  lineinfile:
+    path: /etc/default/opensearch
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: yes
+    mode: '0644'
+  loop:
+    - { key: 'OPENSEARCH_PATH_CONF', value: '{{ opensearch_config_dir }}' }
+    - { key: 'OPENSEARCH_HOME', value: '{{ opensearch_home_dir }}' }
+    - { key: 'OPENSEARCH_JAVA_HOME', value: '{{ opensearch_home_dir }}/jdk' }
+  when: ansible_os_family == "Debian"
+  notify: restart opensearch
+  tags:
+    - environment
+
+- name: Set OpenSearch environment variables (RedHat)
+  lineinfile:
+    path: /etc/sysconfig/opensearch
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: yes
+    mode: '0644'
+  loop:
+    - { key: 'OPENSEARCH_PATH_CONF', value: '{{ opensearch_config_dir }}' }
+    - { key: 'OPENSEARCH_HOME', value: '{{ opensearch_home_dir }}' }
+    - { key: 'OPENSEARCH_JAVA_HOME', value: '{{ opensearch_home_dir }}/jdk' }
+  when: ansible_os_family == "RedHat"
+  notify: restart opensearch
+  tags:
+    - environment
+
+- name: Create OpenSearch config include directory
+  file:
+    path: /etc/opensearch/opensearch.yml.d
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0755'
+
+- name: Deploy performance tuning configuration
+  copy:
+    content: |
+      # Thread pool settings
+      thread_pool.search.size: {{ opensearch_thread_pool_search_size }}
+      thread_pool.search.queue_size: {{ opensearch_thread_pool_search_queue_size }}
+      thread_pool.write.size: {{ opensearch_thread_pool_write_size }}
+      thread_pool.write.queue_size: {{ opensearch_thread_pool_write_queue_size }}
+      thread_pool.get.size: {{ opensearch_thread_pool_get_size }}
+      thread_pool.get.queue_size: {{ opensearch_thread_pool_get_queue_size }}
+    dest: "{{ opensearch_config_dir }}/opensearch.yml.d/performance.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0640'
+  notify: restart opensearch
+  tags:
+    - configuration
+    - performance
+
+- name: Ensure configuration directory permissions are correct
+  file:
+    path: "{{ opensearch_config_dir }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0750'
+    recurse: yes
+  tags:
+    - permissions
+
+
+
+# ================= Build cluster topology =================
+- name: Build cluster manager node list (default)
+  set_fact:
+    opensearch_cluster_manager_nodes: "{{ groups['opensearch'] }}"
+  when: opensearch_cluster_manager_nodes | length == 0
+
+
+# ================= Deploy OpenSearch config =================
+- name: Deploy OpenSearch main configuration file
+  template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "0640"
+  notify: restart opensearch

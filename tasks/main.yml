@@ -1,19 +1,165 @@
 ---
-- name: Including playbook for pre-checks for OpenSearch
-  include_tasks: pre-requisites.yaml
+# tasks file for opensearch
 
-- name: Including playbook to disable SELinux on server
-  include_tasks: Disable_selinux.yaml
-  when: (ansible_distribution != "Ubuntu") and (ansible_distribution != "Amazon")
+- name: Include OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+  tags:
+    - always
 
-- name: Including tasks to install opensearch
-  include_tasks: opensearch_install.yaml
+- name: Display OpenSearch deployment configuration
+  debug:
+    msg:
+      - "Deploying OpenSearch version: {{ opensearch_version }}"
+      - "Cluster name: {{ opensearch_cluster_name }}"
+      - "Node name: {{ opensearch_node_name }}"
+      - "Security enabled: {{ opensearch_security_enabled }}"
+      - "TLS enabled: {{ opensearch_enable_tls }}"
+      - "Dashboards enabled: {{ opensearch_dashboards_enabled }}"
+      - "Snapshot enabled: {{ opensearch_snapshot_enabled }}"
+      - "SSO enabled: {{ opensearch_sso_enabled }}"
+  tags:
+    - always
 
-- name: Installing opensearch
-  include_tasks: security.yaml
+- name: Validate configuration
+  assert:
+    that:
+      - opensearch_cluster_name is defined and opensearch_cluster_name | length > 0
+      - opensearch_node_name is defined and opensearch_node_name | length > 0
+      - opensearch_heap_size is defined
+    fail_msg: "Required variables are not properly defined"
+    success_msg: "Configuration validation passed"
+  tags:
+    - always
 
-- name: user-management
-  include_tasks: user-management.yaml
+# TLS cert check ONLY if real certs are expected
+- name: Check if TLS certificates are provided when TLS is enabled
+  assert:
+    that:
+      - opensearch_ssl_cert | length > 0
+    fail_msg: "TLS is enabled but certificates are not provided."
+  when:
+    - opensearch_enable_tls | bool
+    - not opensearch_security_allow_unsafe_democertificates | bool
 
-- name: intializing
-  include_tasks: intializing.yaml
+- name: Install prerequisites
+  include_tasks: prerequisites.yml
+  tags:
+    - prerequisites
+    - install
+
+- name: Install OpenSearch
+  include_tasks: install_opensearch.yml
+  tags:
+    - install
+    - opensearch
+
+- name: Configure OpenSearch
+  include_tasks: configure_opensearch.yml
+  tags:
+    - configure
+    - opensearch
+
+- name: Setup OpenSearch security
+  include_tasks: security_setup.yml
+  when: opensearch_security_enabled | bool
+  tags:
+    - security
+    - opensearch
+
+- name: Install OpenSearch Dashboards
+  include_tasks: install_dashboards.yml
+  when: opensearch_dashboards_enabled | bool
+  tags:
+    - install
+    - dashboards
+
+- name: Configure OpenSearch Dashboards
+  include_tasks: configure_dashboards.yml
+  when: opensearch_dashboards_enabled | bool
+  tags:
+    - configure
+    - dashboards
+
+- name: Setup SSO authentication
+  include_tasks: sso_setup.yml
+  when: opensearch_sso_enabled | bool
+  tags:
+    - sso
+    - security
+
+- name: Setup snapshot repository
+  include_tasks: snapshot_setup.yml
+  when: opensearch_snapshot_enabled | bool
+  tags:
+    - snapshot
+    - backup
+
+- name: Ensure OpenSearch is started and enabled
+  service:
+    name: opensearch
+    state: "{{ opensearch_service_state }}"
+    enabled: "{{ opensearch_service_enabled }}"
+  tags:
+    - service
+    - opensearch
+
+- name: Ensure OpenSearch Dashboards is started and enabled
+  service:
+    name: opensearch-dashboards
+    state: "{{ opensearch_dashboards_service_state }}"
+    enabled: "{{ opensearch_dashboards_service_enabled }}"
+  when: opensearch_dashboards_enabled | bool
+  tags:
+    - service
+    - dashboards
+
+# ✅ HTTP + HTTPS compatible health check (FIXED)
+- name: Wait for OpenSearch API to be ready (HTTP/HTTPS auto)
+  uri:
+    url: "{{ 'https' if opensearch_http_ssl_enabled else 'http' }}://{{ opensearch_network_publish_host }}:{{ opensearch_http_port }}/_cluster/health"
+    user: "{{ opensearch_admin_username | default(omit) }}"
+    password: "{{ opensearch_admin_password | default(omit) }}"
+    force_basic_auth: true
+    validate_certs: "{{ false if (opensearch_http_ssl_enabled and opensearch_ssl_verification_mode == 'none') else true }}"
+    status_code:
+      - 200
+      - 401
+  register: opensearch_health
+  until: opensearch_health.status in [200, 401]
+  retries: 40
+  delay: 10
+  tags:
+    - health_check
+    - opensearch
+
+- name: Display cluster health
+  debug:
+    msg: "OpenSearch cluster health: {{ opensearch_health.json | default('Not available') }}"
+  when:
+    - opensearch_security_enabled | bool
+    - opensearch_health is defined
+  tags:
+    - health_check
+    - opensearch
+
+- name: Display deployment summary
+  debug:
+    msg:
+      - "=========================================="
+      - "OpenSearch Deployment Summary"
+      - "=========================================="
+      - "OpenSearch URL: {{ 'https' if opensearch_http_ssl_enabled else 'http' }}://{{ ansible_default_ipv4.address }}:{{ opensearch_http_port }}"
+      - "{% if opensearch_dashboards_enabled %}Dashboards URL: {{ 'https' if opensearch_dashboards_enable_tls else 'http' }}://{{ ansible_default_ipv4.address }}:{{ opensearch_dashboards_port }}{% endif %}"
+      - "Cluster Name: {{ opensearch_cluster_name }}"
+      - "Node Name: {{ opensearch_node_name }}"
+      - "Security: {{ 'Enabled' if opensearch_security_enabled else 'Disabled' }}"
+      - "TLS: {{ 'Enabled' if opensearch_enable_tls else 'Disabled' }}"
+      - "SSO: {{ 'Enabled' if opensearch_sso_enabled else 'Disabled' }}"
+      - "Snapshots: {{ 'Enabled' if opensearch_snapshot_enabled else 'Disabled' }}"
+      - "=========================================="
+  tags:
+    - always

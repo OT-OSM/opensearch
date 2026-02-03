@@ -1,0 +1,24 @@
+_meta:
+  type: "config"
+  config_version: 2
+
+config:
+  dynamic:
+    http:
+      anonymous_auth_enabled: {{ opensearch_security_anonymous_auth_enabled | lower }}
+
+    authc:
+      basic_internal_auth_domain:
+        http_enabled: true
+        transport_enabled: true
+        order: 0
+        http_authenticator:
+          type: basic
+          challenge: true
+        authentication_backend:
+          type: internal
+
+    authz:
+      roles_from_myldap:
+        http_enabled: false
+        transport_enabled: false

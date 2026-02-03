@@ -1,0 +1,24 @@
+---
+# vars file for opensearch - RedHat/CentOS/Amazon Linux
+
+opensearch_repo_key_url: "https://artifacts.opensearch.org/publickeys/opensearch.pgp"
+
+opensearch_repo_baseurl: >
+  https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_version.split('.')[0] }}.x/yum
+
+opensearch_dashboards_repo_baseurl: >
+  https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_dashboards_version.split('.')[0] }}.x/yum
+
+opensearch_repo_gpgcheck: true
+opensearch_repo_gpgkey_path: "/etc/pki/rpm-gpg/opensearch.gpg"
+
+opensearch_package_name: "opensearch"
+opensearch_dashboards_package_name: "opensearch-dashboards"
+
+opensearch_dependencies:
+  - curl-minimal
+  - unzip
+  - tar
+
+opensearch_package_manager: "yum"
+opensearch_service_manager: "systemd"

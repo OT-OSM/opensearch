@@ -1,19 +1,301 @@
 ---
-BaseUrl: https://artifacts.opensearch.org/releases/bundle/opensearch
+# defaults file for opensearch
 
-UserName: opensearch
-Opensearch_Dir: /opt/opensearch
-SecurityFileUrl: https://search.maven.org/remotecontent?filepath=com/floragunn/search-guard-tlstool/1.5/search-guard-tlstool-1.5.tar.gz
-OpensearchBinaryPath: /opt/opensearch/bin
+# ============================================================================
+# OpenSearch Core Configuration
+# ============================================================================
 
-cluster_master_nodes: |-
-        {% for item in groups['cluster_master_nodes'] -%}
-          {{ item }}{% if not loop.last %}, {% endif %}
-        {%- endfor %}
+# Version configuration
+opensearch_version: "2.11.1"
+opensearch_dashboards_version: "2.11.1"
 
-cluster_nodes: |-
-        {% for item in groups['cluster_nodes'] -%}
-          {{ item }}{% if not loop.last %}, {% endif %}
-        {%- endfor %}
+# Installation directories
+opensearch_home_dir: "/usr/share/opensearch"
+opensearch_config_dir: "/etc/opensearch"
+opensearch_data_dir: "/var/lib/opensearch"
+opensearch_log_dir: "/var/log/opensearch"
+opensearch_pid_dir: "/var/run/opensearch"
 
-DiscoveryType: single-node
+# User and group
+opensearch_user: "opensearch"
+opensearch_group: "opensearch"
+
+# ============================================================================
+# Cluster Configuration
+# ============================================================================
+
+opensearch_cluster_name: "opensearch-cluster"
+opensearch_node_name: "{{ inventory_hostname }}"
+opensearch_network_host: "0.0.0.0"
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
+opensearch_network_publish_host: "{{ ansible_default_ipv4.address }}"
+# Backward compatibility for seed hosts variable
+opensearch_seed_hosts: "{{ opensearch_discovery_seed_hosts | default([], true) }}"
+
+
+# Bootstrap control (VERY IMPORTANT)
+opensearch_bootstrap_required: false
+
+# High Availability - Discovery
+opensearch_cluster_nodes: []
+opensearch_cluster_manager_nodes: []
+opensearch_discovery_seed_hosts: []
+opensearch_cluster_initial_master_nodes: []
+
+# Node roles
+opensearch_node_roles:
+  - cluster_manager
+  - data
+  - ingest
+
+# Cluster settings
+opensearch_cluster_routing_allocation_disk_threshold_enabled: true
+opensearch_cluster_routing_allocation_disk_watermark_low: "85%"
+opensearch_cluster_routing_allocation_disk_watermark_high: "90%"
+opensearch_cluster_routing_allocation_disk_watermark_flood_stage: "95%"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+
+# Enable/disable security plugin
+opensearch_security_enabled: true
+opensearch_security_plugin_enabled: "{{ opensearch_security_enabled }}"
+
+# TLS/SSL Configuration - FIXED
+opensearch_enable_tls: false
+opensearch_http_ssl_enabled: false
+opensearch_transport_ssl_enabled: false
+
+# Security directories
+opensearch_security_config_dir: "{{ opensearch_config_dir }}/opensearch-security"
+opensearch_ssl_certificate_path: "{{ opensearch_config_dir }}"
+
+# Certificate configuration
+opensearch_ssl_cert_filename: "node.pem"
+opensearch_ssl_key_filename: "node-key.pem"
+opensearch_ssl_ca_filename: "root-ca.pem"
+opensearch_admin_cert_filename: "admin.pem"
+opensearch_admin_key_filename: "admin-key.pem"
+
+# Certificates content (use ansible-vault to encrypt these)
+opensearch_ssl_cert: ""
+opensearch_ssl_key: ""
+opensearch_ssl_ca: ""
+opensearch_admin_cert: ""
+opensearch_admin_key: ""
+
+# SSL/TLS Settings
+opensearch_ssl_verification_mode: "full"  # full, certificate, none
+opensearch_ssl_client_auth: "optional"  # optional, required, none
+opensearch_ssl_protocols:
+  - "TLSv1.2"
+  - "TLSv1.3"
+opensearch_ssl_ciphers:
+  - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+  - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+
+# Security plugin admin credentials (use ansible-vault)
+opensearch_admin_username: "admin"
+opensearch_admin_password: "{{ vault_opensearch_admin_password }}"
+
+# real dashboards service user
+opensearch_dashboards_username: "dashboard"
+
+# backward compatibility
+opensearch_kibanaserver_username: "{{ opensearch_dashboards_username }}"
+opensearch_kibanaserver_password: "{{ vault_opensearch_dashboards_password }}"
+
+# optional future users 
+opensearch_logstash_username: ""
+opensearch_logstash_password: "{{ vault_opensearch_logstash_password }}"
+
+# Security plugin configuration
+opensearch_security_config_ssl_http_enabled: "{{ opensearch_http_ssl_enabled }}"
+opensearch_security_allow_unsafe_democertificates: false
+opensearch_security_allow_default_init_securityindex: true
+opensearch_security_audit_type: "internal_opensearch"
+opensearch_security_enable_snapshot_restore_privilege: true
+opensearch_security_check_snapshot_restore_write_privileges: true
+
+# Anonymous authentication
+opensearch_security_anonymous_auth_enabled: false
+
+# ============================================================================
+# SSO Configuration
+# ============================================================================
+
+opensearch_sso_enabled: false
+opensearch_sso_type: "saml"  # saml, oidc, jwt
+
+# SAML Configuration
+opensearch_saml_enabled: "{{ opensearch_sso_enabled and opensearch_sso_type == 'saml' }}"
+opensearch_saml_metadata_url: ""
+opensearch_saml_entity_id: "opensearch-cluster"
+opensearch_saml_roles_key: "roles"
+opensearch_saml_subject_key: "NameID"
+opensearch_saml_exchange_key: "changeme"  # Use vault for this
+
+# OIDC Configuration
+opensearch_oidc_enabled: "{{ opensearch_sso_enabled and opensearch_sso_type == 'oidc' }}"
+opensearch_oidc_connect_url: ""
+opensearch_oidc_client_id: ""
+opensearch_oidc_client_secret: ""  # Use vault for this
+opensearch_oidc_scope: "openid profile email"
+
+# JWT Configuration
+opensearch_jwt_enabled: "{{ opensearch_sso_enabled and opensearch_sso_type == 'jwt' }}"
+opensearch_jwt_url_parameter: "token"
+opensearch_jwt_header: "Authorization"
+opensearch_jwt_signing_key: ""  # Use vault for this
+
+# ============================================================================
+# Snapshot Configuration
+# ============================================================================
+
+opensearch_snapshot_enabled: false
+opensearch_snapshot_type: "s3"  # s3, fs, azure
+opensearch_snapshot_repository_name: "opensearch-snapshots"
+
+# S3 Snapshot Configuration
+opensearch_snapshot_s3_enabled: "{{ opensearch_snapshot_enabled and opensearch_snapshot_type == 's3' }}"
+opensearch_snapshot_s3_bucket: ""
+opensearch_snapshot_s3_region: "us-east-1"
+opensearch_snapshot_s3_base_path: "opensearch-snapshots"
+opensearch_snapshot_s3_access_key: ""  # Use vault
+opensearch_snapshot_s3_secret_key: ""  # Use vault
+opensearch_snapshot_s3_endpoint: ""  # Optional for S3-compatible storage
+opensearch_snapshot_s3_protocol: "https"
+opensearch_snapshot_s3_compress: true
+opensearch_snapshot_s3_server_side_encryption: true
+
+# Filesystem Snapshot Configuration
+opensearch_snapshot_fs_enabled: "{{ opensearch_snapshot_enabled and opensearch_snapshot_type == 'fs' }}"
+opensearch_snapshot_fs_location: "/mnt/opensearch-snapshots"
+
+# Azure Snapshot Configuration
+opensearch_snapshot_azure_enabled: "{{ opensearch_snapshot_enabled and opensearch_snapshot_type == 'azure' }}"
+opensearch_snapshot_azure_container: ""
+opensearch_snapshot_azure_account: ""
+opensearch_snapshot_azure_key: ""  # Use vault
+opensearch_snapshot_azure_base_path: "opensearch-snapshots"
+
+# ============================================================================
+# OpenSearch Dashboards Configuration
+# ============================================================================
+
+opensearch_dashboards_enabled: true
+opensearch_dashboards_home_dir: "/usr/share/opensearch-dashboards"
+opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
+opensearch_dashboards_log_dir: "/var/log/opensearch-dashboards"
+opensearch_dashboards_user: "opensearch-dashboards"
+opensearch_dashboards_group: "opensearch-dashboards"
+
+# Network configuration
+opensearch_dashboards_host: "0.0.0.0"
+opensearch_dashboards_port: 5601
+opensearch_dashboards_server_name: "{{ ansible_hostname }}"
+opensearch_dashboards_base_path: ""
+
+# OpenSearch connection
+opensearch_dashboards_opensearch_hosts:
+  - "{% if opensearch_http_ssl_enabled %}https{% else %}http{% endif %}://{{ opensearch_network_host }}:{{ opensearch_http_port }}"
+opensearch_dashboards_opensearch_username: "{{ opensearch_kibanaserver_username }}"
+opensearch_dashboards_opensearch_password: "{{ opensearch_kibanaserver_password }}"
+opensearch_dashboards_opensearch_request_timeout: 30000
+
+# Security configuration - FIXED
+opensearch_dashboards_security_enabled: "{{ opensearch_security_enabled }}"
+opensearch_dashboards_enable_tls: false
+opensearch_dashboards_ssl_cert_filename: "dashboards.pem"
+opensearch_dashboards_ssl_key_filename: "dashboards-key.pem"
+opensearch_dashboards_ssl_cert: ""
+opensearch_dashboards_ssl_key: ""
+
+# Session configuration
+opensearch_dashboards_session_timeout: 3600000  # 1 hour in milliseconds
+opensearch_dashboards_cookie_secure: "{{ opensearch_dashboards_enable_tls }}"
+
+# ============================================================================
+# Performance Tuning
+# ============================================================================
+
+# JVM Configuration
+opensearch_heap_size: "2g"
+opensearch_heap_size_min: "{{ opensearch_heap_size }}"
+opensearch_heap_size_max: "{{ opensearch_heap_size }}"
+
+# JVM Options
+opensearch_jvm_options_gc_type: "G1GC"  # G1GC, ZGC
+opensearch_jvm_options_gc_log_enabled: true
+opensearch_jvm_options_heap_dump_on_oom: true
+opensearch_jvm_options_heap_dump_path: "{{ opensearch_data_dir }}"
+
+# Thread Pools
+opensearch_thread_pool_search_size: 30
+opensearch_thread_pool_search_queue_size: 1000
+opensearch_thread_pool_write_size: 30
+opensearch_thread_pool_write_queue_size: 10000
+opensearch_thread_pool_get_size: 30
+opensearch_thread_pool_get_queue_size: 1000
+
+# Cache Configuration
+opensearch_indices_memory_index_buffer_size: "10%"
+opensearch_indices_memory_min_index_buffer_size: "48mb"
+opensearch_indices_memory_max_index_buffer_size: "unlimited"
+opensearch_indices_fielddata_cache_size: "20%"
+opensearch_indices_queries_cache_size: "10%"
+opensearch_indices_request_cache_size: "1%"
+
+# Indexing Settings
+opensearch_indices_requests_cache_size: "1%"
+opensearch_indices_recovery_max_bytes_per_sec: "100mb"
+
+# ============================================================================
+# Monitoring and Logging
+# ============================================================================
+
+opensearch_log_level: "info"  # debug, info, warn, error
+opensearch_slowlog_threshold_query_warn: "10s"
+opensearch_slowlog_threshold_query_info: "5s"
+opensearch_slowlog_threshold_query_debug: "2s"
+opensearch_slowlog_threshold_fetch_warn: "1s"
+opensearch_slowlog_threshold_fetch_info: "800ms"
+opensearch_slowlog_threshold_fetch_debug: "500ms"
+
+# Action Settings
+opensearch_action_destructive_requires_name: true
+opensearch_action_auto_create_index: true
+
+# ============================================================================
+# OS-Specific Configuration
+# ============================================================================
+
+# These will be overridden by vars/{{ ansible_os_family }}.yml
+opensearch_package_url: ""
+opensearch_dashboards_package_url: ""
+
+# System limits
+opensearch_system_nofile_soft: 65536
+opensearch_system_nofile_hard: 65536
+opensearch_system_nproc_soft: 4096
+opensearch_system_nproc_hard: 4096
+opensearch_system_memlock_soft: unlimited
+opensearch_system_memlock_hard: unlimited
+
+# Service configuration
+opensearch_service_enabled: true
+opensearch_service_state: started
+opensearch_dashboards_service_enabled: "{{ opensearch_dashboards_enabled }}"
+opensearch_dashboards_service_state: started
+
+# Bootstrap checks
+opensearch_bootstrap_memory_lock: true
+
+# Additional custom configuration
+opensearch_custom_config: {}
+opensearch_dashboards_custom_config: {}
+opensearch_admin_dn_list:
+  - "CN=kirk,OU=client,O=client,L=test,C=de"

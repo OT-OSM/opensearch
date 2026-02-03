@@ -1,0 +1,82 @@
+---
+# tasks/install_opensearch.yml - Install OpenSearch
+
+- name: Check if OpenSearch is already installed
+  command: dpkg-query -W opensearch
+  register: opensearch_installed_check
+  failed_when: false
+  changed_when: false
+  when: ansible_os_family == "Debian"
+  tags:
+    - install_check
+
+- name: Check if OpenSearch is already installed (RedHat)
+  command: rpm -q opensearch
+  register: opensearch_installed_check_rpm
+  failed_when: false
+  changed_when: false
+  when: ansible_os_family == "RedHat"
+  tags:
+    - install_check
+
+- name: Update apt cache before installation (Debian/Ubuntu)
+  apt:
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+  tags:
+    - install
+
+- name: Install OpenSearch (Debian/Ubuntu)
+  apt:
+    name: "{{ opensearch_package_name }}={{ opensearch_version }}"
+    state: present
+    allow_change_held_packages: yes
+  when: ansible_os_family == "Debian"
+  notify: restart opensearch
+  tags:
+    - install
+
+- name: Install OpenSearch (RedHat/CentOS)
+  yum:
+    name: "{{ opensearch_package_name }}-{{ opensearch_version }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  notify: restart opensearch
+  tags:
+    - install
+
+- name: Hold OpenSearch package version (Debian/Ubuntu)
+  dpkg_selections:
+    name: opensearch
+    selection: hold
+  when: ansible_os_family == "Debian"
+  tags:
+    - install
+
+- name: Ensure OpenSearch directories have correct permissions
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: '0755'
+    recurse: yes
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_dir }}"
+    - "{{ opensearch_log_dir }}"
+  tags:
+    - permissions
+
+- name: Check OpenSearch version
+  command: "{{ opensearch_home_dir }}/bin/opensearch --version"
+  register: opensearch_version_output
+  changed_when: false
+  tags:
+    - install_check
+
+- name: Display installed OpenSearch version
+  debug:
+    msg: "Installed OpenSearch version: {{ opensearch_version_output.stdout | default('Unable to determine') }}"
+  tags:
+    - install_check
