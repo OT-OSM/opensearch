@@ -1,0 +1,32 @@
+---
+- name: Create OpenSearch Configuration Directory
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0750'
+
+- name: Deploy opensearch.yml
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  notify: Restart OpenSearch
+
+- name: Deploy jvm.options
+  ansible.builtin.template:
+    src: jvm.options.j2
+    dest: "{{ opensearch_config_dir }}/jvm.options"
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  notify: Restart OpenSearch
+
+- name: Enable and start OpenSearch service
+  ansible.builtin.service:
+    name: opensearch
+    state: started
+    enabled: yes

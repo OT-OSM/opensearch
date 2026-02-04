@@ -1,0 +1,10 @@
+---
+- name: Restart OpenSearch
+  ansible.builtin.service:
+    name: opensearch
+    state: restarted
+
+- name: Restart OpenSearch Dashboards
+  ansible.builtin.service:
+    name: opensearch-dashboards
+    state: restarted

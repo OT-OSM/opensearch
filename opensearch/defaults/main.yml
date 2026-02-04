@@ -1,0 +1,54 @@
+---
+# Version
+opensearch_version: "2.11.0"
+
+# Installation Toggles
+opensearch_install_node: true
+opensearch_install_dashboard: true
+
+# OpenSearch Cluster Configuration
+opensearch_cluster_name: "opensearch-cluster"
+opensearch_node_name: "{{ ansible_hostname }}"
+opensearch_network_host: "0.0.0.0"
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
+opensearch_discovery_seed_hosts: []
+opensearch_initial_master_nodes: []
+opensearch_node_roles: ["cluster_manager", "data", "ingest"]
+
+# JVM Heap
+opensearch_jvm_heap_size: "1g"
+
+# Index Defaults
+opensearch_number_of_shards: 1
+opensearch_number_of_replicas: 1
+
+# Security / TLS Configuration
+opensearch_use_tls: false
+# Paths on the remote machine where certs will be placed/found
+opensearch_config_dir: "/etc/opensearch"
+opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
+# If opensearch_use_tls is true, you must provide source paths for these
+# opensearch_root_ca_path: "/local/path/to/root-ca.pem"
+# opensearch_admin_cert_path: "/local/path/to/admin.pem"
+# opensearch_admin_key_path: "/local/path/to/admin-key.pem"
+# opensearch_node_cert_path: "/local/path/to/node.pem"
+# opensearch_node_key_path: "/local/path/to/node-key.pem"
+# opensearch_http_cert_path: "/local/path/to/http.pem"
+# opensearch_http_key_path: "/local/path/to/http-key.pem"
+
+opensearch_admin_dn: []
+opensearch_nodes_dn: []
+
+# Authentication / SSO
+# Set to true to enable SSO (basic auth is always enabled as fallback/internal)
+opensearch_enable_sso: false
+opensearch_auth_type: "basic" # Options: basic, openid, saml, etc.
+opensearch_admin_username: "admin"
+opensearch_admin_password: "StrongPassword123!" # Change this!
+
+# OpenSearch Dashboards
+opensearch_dashboards_port: 5601
+opensearch_dashboards_host: "0.0.0.0"
+opensearch_dashboards_version: "{{ opensearch_version }}"
+opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"

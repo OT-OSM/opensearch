@@ -1,0 +1,21 @@
+server.port: {{ opensearch_dashboards_port }}
+server.host: "{{ opensearch_dashboards_host }}"
+
+# Connection to OpenSearch Node
+{% if opensearch_use_tls %}
+opensearch.hosts: ["https://localhost:9200"]
+opensearch.ssl.verificationMode: none
+opensearch.username: "{{ opensearch_admin_username }}"
+opensearch.password: "{{ opensearch_admin_password }}"
+{% else %}
+opensearch.hosts: ["http://localhost:9200"]
+{% endif %}
+
+# Dashboards Server TLS
+{% if opensearch_use_tls %}
+server.ssl.enabled: true
+server.ssl.certificate: {{ opensearch_dashboards_config_dir }}/certs/node.pem
+server.ssl.key: {{ opensearch_dashboards_config_dir }}/certs/node-key.pem
+{% else %}
+server.ssl.enabled: false
+{% endif %}

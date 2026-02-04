@@ -1,0 +1,7 @@
+---
+- name: Install OpenSearch Package
+  ansible.builtin.package:
+    name: opensearch
+    state: present
+  environment:
+    OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"

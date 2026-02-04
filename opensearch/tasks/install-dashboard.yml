@@ -1,0 +1,5 @@
+---
+- name: Install OpenSearch Dashboards
+  ansible.builtin.package:
+    name: opensearch-dashboards
+    state: present

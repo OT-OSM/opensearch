@@ -1,0 +1,14 @@
+---
+- name: Set vm.max_map_count
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "262144"
+    state: present
+    reload: true
+
+- name: Disable swap (optional but recommended for OpenSearch)
+  ansible.builtin.command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+  changed_when: false
+  # Note: To permanently disable swap, /etc/fstab modification is needed. 
+  # For this role, we'll stick to runtime command or trust the user environment.

@@ -1,0 +1,22 @@
+---
+- name: Install dependencies for RedHat/Amazon Linux
+  ansible.builtin.package:
+    name:
+      # - curl   # AL2023 has curl-minimal which conflicts
+      # - gnupg2 # AL2023 has gnupg2-minimal which conflicts
+      - sudo     # Ensure sudo is present if not
+    state: present
+  ignore_errors: yes
+
+- name: Add OpenSearch Yum Repository
+  ansible.builtin.get_url:
+    url: "https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/opensearch-2.x.repo"
+    dest: /etc/yum.repos.d/opensearch-2.x.repo
+    mode: '0644'
+
+- name: Add OpenSearch Dashboards Yum Repository
+  ansible.builtin.get_url:
+    url: "https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.x/opensearch-dashboards-2.x.repo"
+    dest: /etc/yum.repos.d/opensearch-dashboards-2.x.repo
+    mode: '0644'
+  when: opensearch_install_dashboard

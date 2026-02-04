@@ -1,0 +1,43 @@
+---
+- name: Check OS family
+  ansible.builtin.fail:
+    msg: "OS family {{ ansible_os_family }} is not supported"
+  when: ansible_os_family not in ['Debian', 'RedHat']
+
+- name: Configure Prerequisites (sysctl, etc.)
+  ansible.builtin.include_tasks: prereqs.yml
+
+- name: Setup repositories for Debian family
+  ansible.builtin.include_tasks: setup-debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Setup repositories for RedHat/Amazon family
+  ansible.builtin.include_tasks: setup-redhat.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Install OpenSearch Node
+  ansible.builtin.include_tasks: install-node.yml
+  when: opensearch_install_node
+
+- name: Configure OpenSearch Node
+  ansible.builtin.include_tasks: config-node.yml
+  when: opensearch_install_node
+
+- name: Configure Security (TLS/Auth)
+  ansible.builtin.include_tasks: security-config.yml
+  when: opensearch_install_node
+
+- name: Ensure OpenSearch is started before proceeding
+  ansible.builtin.meta: flush_handlers
+
+- name: Configure Cluster Health Check
+  ansible.builtin.include_tasks: configure-cluster.yml
+  when: opensearch_install_node
+
+- name: Install OpenSearch Dashboards
+  ansible.builtin.include_tasks: install-dashboard.yml
+  when: opensearch_install_dashboard
+
+- name: Configure OpenSearch Dashboards
+  ansible.builtin.include_tasks: config-dashboard.yml
+  when: opensearch_install_dashboard

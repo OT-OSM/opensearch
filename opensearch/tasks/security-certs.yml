@@ -1,0 +1,21 @@
+---
+- name: Check if security plugin config exists
+  stat:
+    path: /usr/share/opensearch/plugins/opensearch-security/config
+  register: security_plugin_config
+
+- name: Copy demo certificates to configuration directory
+  copy:
+    src: "/usr/share/opensearch/plugins/opensearch-security/config/{{ item }}"
+    dest: "/etc/opensearch/{{ item }}"
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+    remote_src: yes
+  loop:
+    - kirk.pem
+    - kirk-key.pem
+    - esnode.pem
+    - esnode-key.pem
+    - root-ca.pem
+  when: security_plugin_config.stat.exists

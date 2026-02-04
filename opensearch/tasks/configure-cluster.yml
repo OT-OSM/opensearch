@@ -1,0 +1,33 @@
+---
+- name: Determine protocol
+  ansible.builtin.set_fact:
+    opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+
+- name: Wait for OpenSearch to be ready
+  ansible.builtin.uri:
+    url: "{{ opensearch_protocol }}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    # Auth only needed if TLS/Security is enabled
+    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
+    validate_certs: no
+    status_code: 200
+  register: cluster_health
+  until: cluster_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Apply Default Index Template (Shards/Replicas)
+  ansible.builtin.uri:
+    url: "{{ opensearch_protocol }}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_index_template/default_template"
+    method: PUT
+    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
+    body: "{{ lookup('template', 'default_template.json.j2') }}"
+    body_format: json
+    validate_certs: no
+    status_code: [200, 201]
+  # Only run this on one node (e.g. the first master)
+  when: inventory_hostname == opensearch_initial_master_nodes[0] | default(inventory_hostname)
