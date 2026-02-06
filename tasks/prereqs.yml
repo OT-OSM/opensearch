@@ -8,18 +8,42 @@
   retries: 5
   delay: 30
 
+- name: Configuring the opensearch DNS in /etc/hosts
+  ansible.builtin.blockinfile:
+    block: |
+      {{ hostvars[item]['ansible_default_ipv4']['address'] }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+  become: true
+  with_items:
+    - "{{ groups['opensearch'] | default([]) }}"
+  when: groups['opensearch'] is defined
+
+- name: Setting up hostname of opensearch nodes
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  become: true
+
 - name: Set vm.max_map_count
   ansible.posix.sysctl:
     name: vm.max_map_count
     value: "{{ opensearch_vm_max_map_count }}"
     state: present
     reload: true
+  become: true
+
+- name: Setting file max value on opensearch nodes
+  ansible.posix.sysctl:
+    name: fs.file-max
+    value: "{{ opensearch_systemd_limit_nofile }}"
+    state: present
+    reload: true
+  become: true
 
 - name: Disable swap (optional but recommended for OpenSearch)
   ansible.builtin.command: swapoff -a
   when: 
-    - ansible_swaptotal_mb > 0
+    - ansible_swaptotal_mb | default(0) > 0
     - opensearch_disable_swap | bool
   changed_when: false
-  # Note: To permanently disable swap, /etc/fstab modification is needed. 
-  # For this role, we'll stick to runtime command or trust the user environment.
+  become: true

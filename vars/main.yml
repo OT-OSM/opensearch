@@ -12,4 +12,6 @@ opensearch_bootstrap_cluster: true
 # but I'll keep them here if they are intended to be role-level overrides.
 opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
 opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
+opensearch_domain_name: "example.com"
+
 
