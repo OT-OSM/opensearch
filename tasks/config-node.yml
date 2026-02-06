@@ -56,9 +56,28 @@
     mode: '0644'
   notify: Restart OpenSearch
 
-- name: Enable and start OpenSearch service
+- name: Enable OpenSearch service
   ansible.builtin.service:
     name: opensearch
-    state: started
     enabled: yes
     daemon_reload: yes
+
+- name: Start OpenSearch service (non-blocking)
+  ansible.builtin.systemd:
+    name: opensearch
+    state: started
+    no_block: yes
+
+- name: Wait for OpenSearch service to be active
+  ansible.builtin.systemd:
+    name: opensearch
+  register: opensearch_service_status
+  until: opensearch_service_status.status.ActiveState == "active"
+  retries: 30
+  delay: 10
+  failed_when: false
+
+- name: Check if OpenSearch failed to start
+  ansible.builtin.fail:
+    msg: "OpenSearch service failed to start. Status: {{ opensearch_service_status.status.ActiveState }}. Check logs with: journalctl -xeu opensearch.service"
+  when: opensearch_service_status.status.ActiveState != "active"
