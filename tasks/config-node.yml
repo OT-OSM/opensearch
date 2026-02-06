@@ -109,7 +109,7 @@
     - opensearch_service_status.status is defined
     - opensearch_service_status.status.ActiveState == "active"
   retries: 30
-  delay: 10
+  delay: 5
   failed_when: false
 
 

@@ -3,7 +3,14 @@
   ansible.builtin.set_fact:
     opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
-- name: Wait for OpenSearch to be ready
+- name: Wait for OpenSearch port to be open
+  ansible.builtin.wait_for:
+    port: "{{ opensearch_http_port }}"
+    host: "127.0.0.1"
+    state: started
+    timeout: 300
+
+- name: Wait for OpenSearch HTTP health check
   ansible.builtin.uri:
     url: "{{ opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
     method: GET
@@ -13,10 +20,11 @@
     force_basic_auth: yes
     validate_certs: no
     status_code: 200
+    timeout: 10
   register: cluster_health
   until: cluster_health.status == 200
   retries: 50
-  delay: 10
+  delay: 5
 
 - name: Apply Default Index Template (Shards/Replicas)
   ansible.builtin.uri:
