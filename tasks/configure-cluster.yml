@@ -30,4 +30,5 @@
     validate_certs: no
     status_code: [200, 201]
   # Only run this on one node (e.g. the first master)
-  when: inventory_hostname == opensearch_initial_master_nodes[0] | default(inventory_hostname)
+  when: inventory_hostname == (opensearch_initial_master_nodes | first | default(inventory_hostname))
+

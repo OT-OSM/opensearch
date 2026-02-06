@@ -85,10 +85,13 @@
   ansible.builtin.systemd:
     name: opensearch
   register: opensearch_service_status
-  until: opensearch_service_status.status.ActiveState == "active"
+  until: 
+    - opensearch_service_status.status is defined
+    - opensearch_service_status.status.ActiveState == "active"
   retries: 30
   delay: 10
   failed_when: false
+
 
 - name: Get OpenSearch logs on failure
   ansible.builtin.command: journalctl -u opensearch -n 50 --no-pager

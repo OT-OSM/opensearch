@@ -16,6 +16,7 @@ opensearch_http_port: 9200
 opensearch_transport_port: 9300
 opensearch_discovery_seed_hosts: []
 opensearch_initial_master_nodes: []
+
 opensearch_node_roles: ["cluster_manager", "data", "ingest"]
 opensearch_bootstrap_memory_lock: false  # Disable to avoid bootstrap check failures
 
