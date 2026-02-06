@@ -3,12 +3,12 @@ server.host: "{{ opensearch_dashboards_host }}"
 
 # Connection to OpenSearch Node
 {% if opensearch_use_tls %}
-opensearch.hosts: ["https://localhost:9200"]
+opensearch.hosts: ["https://{{ opensearch_dashboards_opensearch_host }}"]
 opensearch.ssl.verificationMode: none
-opensearch.username: "{{ opensearch_admin_username }}"
+opensearch.username: "{{ opensearch_dashboards_admin_username }}"
 opensearch.password: "{{ opensearch_admin_password }}"
 {% else %}
-opensearch.hosts: ["http://localhost:9200"]
+opensearch.hosts: ["http://{{ opensearch_dashboards_opensearch_host }}"]
 {% endif %}
 
 # Dashboards Server TLS

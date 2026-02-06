@@ -1,14 +1,16 @@
 ---
 # Version
 opensearch_version: "2.11.0"
+opensearch_major_version: "2.x"  # Used for repository URLs
 
 # Installation Toggles
 opensearch_install_node: true
 opensearch_install_dashboard: true
+opensearch_bootstrap_cluster: true
 
 # OpenSearch Cluster Configuration
 opensearch_cluster_name: "opensearch-cluster"
-opensearch_node_name: "{{ ansible_hostname }}"
+opensearch_node_name: "{{ inventory_hostname }}"
 opensearch_network_host: "0.0.0.0"
 opensearch_http_port: 9200
 opensearch_transport_port: 9300
@@ -19,6 +21,18 @@ opensearch_node_roles: ["cluster_manager", "data", "ingest"]
 # JVM Heap
 opensearch_jvm_heap_size: "1g"
 
+# System Configuration
+opensearch_vm_max_map_count: 262144
+opensearch_disable_swap: false  # Set to true to disable swap
+
+# Java Configuration
+opensearch_java_package: "{{ 'java-21-amazon-corretto' if ansible_distribution == 'Amazon' else ('java-17-openjdk' if ansible_os_family == 'RedHat' else 'openjdk-11-jdk') }}"
+
+# Path Configuration
+opensearch_data_path: /var/lib/opensearch
+opensearch_logs_path: /var/log/opensearch
+
+
 # Index Defaults
 opensearch_number_of_shards: 1
 opensearch_number_of_replicas: 1
@@ -28,6 +42,7 @@ opensearch_use_tls: false
 # Paths on the remote machine where certs will be placed/found
 opensearch_config_dir: "/etc/opensearch"
 opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
+opensearch_security_config_dir: "/usr/share/opensearch/plugins/opensearch-security/securityconfig"
 # If opensearch_use_tls is true, you must provide source paths for these
 # opensearch_root_ca_path: "/local/path/to/root-ca.pem"
 # opensearch_admin_cert_path: "/local/path/to/admin.pem"
@@ -52,3 +67,5 @@ opensearch_dashboards_port: 5601
 opensearch_dashboards_host: "0.0.0.0"
 opensearch_dashboards_version: "{{ opensearch_version }}"
 opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
+opensearch_dashboards_admin_username: "admin"  # Dashboard-specific admin username
+opensearch_dashboards_opensearch_host: "localhost:9200"  # OpenSearch connection host

@@ -1,11 +1,11 @@
 ---
 - name: Check if security plugin config exists
-  stat:
+  ansible.builtin.stat:
     path: /usr/share/opensearch/plugins/opensearch-security/config
   register: security_plugin_config
 
 - name: Copy demo certificates to configuration directory
-  copy:
+  ansible.builtin.copy:
     src: "/usr/share/opensearch/plugins/opensearch-security/config/{{ item }}"
     dest: "/etc/opensearch/{{ item }}"
     owner: opensearch

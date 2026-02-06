@@ -1,0 +1,13 @@
+---
+- name: Install dependencies for RedHat/Amazon Linux
+  ansible.builtin.package:
+    name:
+      - sudo
+    state: present
+  ignore_errors: yes
+
+- name: Add OpenSearch Yum Repository
+  ansible.builtin.get_url:
+    url: "https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_major_version }}/opensearch-{{ opensearch_major_version }}.repo"
+    dest: /etc/yum.repos.d/opensearch-{{ opensearch_major_version }}.repo
+    mode: '0644'

@@ -7,13 +7,8 @@
 - name: Configure Prerequisites (sysctl, etc.)
   ansible.builtin.include_tasks: prereqs.yml
 
-- name: Setup repositories for Debian family
-  ansible.builtin.include_tasks: setup-debian.yml
-  when: ansible_os_family == 'Debian'
-
-- name: Setup repositories for RedHat/Amazon family
-  ansible.builtin.include_tasks: setup-redhat.yml
-  when: ansible_os_family == 'RedHat'
+- name: Setup repositories for {{ ansible_os_family }} family
+  ansible.builtin.include_tasks: setup-{{ ansible_os_family }}.yml
 
 - name: Install OpenSearch Node
   ansible.builtin.include_tasks: install-node.yml

@@ -1,4 +1,18 @@
 ---
+- name: Ensure opensearch-dashboards group exists
+  ansible.builtin.group:
+    name: opensearch-dashboards
+    state: present
+    system: yes
+
+- name: Ensure opensearch-dashboards user exists
+  ansible.builtin.user:
+    name: opensearch-dashboards
+    state: present
+    system: yes
+    group: opensearch-dashboards
+    create_home: no
+
 - name: Create OpenSearch Dashboards Config Directory
   ansible.builtin.file:
     path: "{{ opensearch_dashboards_config_dir }}"

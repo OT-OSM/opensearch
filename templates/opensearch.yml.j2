@@ -1,0 +1,136 @@
+# =========================
+# OpenSearch basic settings
+# =========================
+{% if opensearch_discovery_seed_hosts | length > 1 or opensearch_initial_master_nodes | length > 1 %}
+# Cluster mode
+cluster.name: {{ opensearch_cluster_name }}
+{% else %}
+# Standalone mode
+cluster.name: {{ opensearch_cluster_name }}-standalone
+{% endif %}
+node.name: {{ opensearch_node_name }}
+
+path.data: {{ opensearch_data_path }}
+path.logs: {{ opensearch_logs_path }}
+
+
+# =========================
+# Network
+# =========================
+
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+
+
+# =========================
+# Discovery
+# =========================
+{% if opensearch_discovery_seed_hosts | length > 1 or opensearch_initial_master_nodes | length > 1 %}
+# Cluster mode - multiple nodes
+discovery.seed_hosts:
+{% for host in opensearch_discovery_seed_hosts %}
+  - {{ host }}
+{% endfor %}
+
+{% if opensearch_bootstrap_cluster | bool %}
+cluster.initial_master_nodes:
+{% for node in opensearch_initial_master_nodes %}
+  - {{ node }}
+{% endfor %}
+{% endif %}
+{% else %}
+# Standalone mode - single node
+discovery.type: single-node
+{% endif %}
+
+
+# =========================
+# Node roles
+# =========================
+
+node.roles:
+{% for role in opensearch_node_roles %}
+  - {{ role }}
+{% endfor %}
+
+
+# =========================
+# Memory / bootstrap
+# =========================
+
+bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | default(false) }}
+
+
+# =========================
+# Performance / safety
+# =========================
+
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.info.update.interval: 30s
+
+
+# =========================
+# Security (TLS / Auth)
+# =========================
+
+{% if opensearch_use_tls | bool %}
+
+plugins.security.enabled: true
+
+# ---- Transport layer (node to node)
+plugins.security.ssl.transport.pemcert_filepath: {{ opensearch_certs_dir }}/node.pem
+plugins.security.ssl.transport.pemkey_filepath: {{ opensearch_certs_dir }}/node-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: {{ opensearch_certs_dir }}/root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# ---- HTTP layer (client to node)
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: {{ opensearch_certs_dir }}/node.pem
+plugins.security.ssl.http.pemkey_filepath: {{ opensearch_certs_dir }}/node-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: {{ opensearch_certs_dir }}/root-ca.pem
+
+
+# ---- Admin DNs
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - {{ dn }}
+{% endfor %}
+
+
+# ---- Node DNs
+plugins.security.nodes_dn:
+{% for dn in opensearch_nodes_dn %}
+  - {{ dn }}
+{% endfor %}
+
+
+# ---- Security behaviour
+plugins.security.allow_default_init_securityindex: true
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+
+plugins.security.restapi.roles_enabled:
+  - all_access
+  - security_rest_api_access
+
+plugins.security.audit.type: internal_opensearch
+
+plugins.security.system_indices.enabled: true
+plugins.security.system_indices.indices:
+  - ".opendistro-alerting-config"
+  - ".opendistro-alerting-alert*"
+  - ".opendistro-anomaly-results*"
+  - ".opendistro-anomaly-detector*"
+  - ".opendistro-anomaly-checkpoints"
+  - ".opendistro-anomaly-detection-state"
+  - ".opendistro-reports-*"
+  - ".opendistro-notifications-*"
+  - ".opendistro-notebooks"
+  - ".opendistro-asynchronous-search-response*"
+
+{% else %}
+
+plugins.security.disabled: true
+
+{% endif %}

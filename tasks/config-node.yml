@@ -1,14 +1,4 @@
 ---
-- name: Build discovery seed hosts from inventory
-  ansible.builtin.set_fact:
-    opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
-  when: groups['opensearch'] is defined and (groups['opensearch'] | length > 1)
-
-- name: Build initial master nodes from inventory
-  ansible.builtin.set_fact:
-    opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
-  when: groups['opensearch'] is defined and (groups['opensearch'] | length > 1)
-
 - name: Ensure opensearch group exists
   ansible.builtin.group:
     name: opensearch

@@ -56,10 +56,10 @@
   when: opensearch_use_tls and opensearch_node_key_path is defined
   notify: Restart OpenSearch
 
-- name: Deploy internal_users.yml
+- name: Create Internal Users
   ansible.builtin.template:
     src: internal_users.yml.j2
-    dest: /usr/share/opensearch/plugins/opensearch-security/securityconfig/internal_users.yml
+    dest: "{{ opensearch_security_config_dir }}/internal_users.yml"
     owner: opensearch
     group: opensearch
     mode: '0640'
@@ -70,7 +70,7 @@
 - name: Apply Security Configuration (securityadmin.sh)
   ansible.builtin.command: >
     /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
-    -cd /usr/share/opensearch/plugins/opensearch-security/securityconfig/
+    -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -cacert {{ opensearch_certs_dir }}/root-ca.pem
     -cert {{ opensearch_certs_dir }}/admin.pem
