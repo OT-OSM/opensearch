@@ -1,7 +1,7 @@
 galaxy_info:
-  author: manual-to-ansible
+  author: Sneha Joshi
   description: Ansible role to install and configure OpenSearch Cluster
-  company: "YourCompany"
+  company: "Opstree"
   license: "Apache-2.0"
   min_ansible_version: "2.9"
   platforms:
