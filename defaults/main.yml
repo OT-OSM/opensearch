@@ -30,7 +30,7 @@ opensearch_configure_hostname: true  # Set to false if hostnames cannot be manag
 
 
 # Systemd / Resource Limits
-opensearch_systemd_timeout: 300
+opensearch_systemd_timeout: 900
 opensearch_systemd_limit_nofile: 65536
 opensearch_systemd_limit_nproc: 4096
 

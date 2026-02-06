@@ -69,6 +69,26 @@
     mode: '0644'
   notify: Restart OpenSearch
 
+- name: Set OpenSearch Environment File (Debian)
+  ansible.builtin.template:
+    src: opensearch.env.j2
+    dest: /etc/default/opensearch
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_os_family == 'Debian'
+  notify: Restart OpenSearch
+
+- name: Set OpenSearch Environment File (RedHat)
+  ansible.builtin.template:
+    src: opensearch.env.j2
+    dest: /etc/sysconfig/opensearch
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_os_family == 'RedHat'
+  notify: Restart OpenSearch
+
 - name: Enable OpenSearch service
   ansible.builtin.service:
     name: opensearch

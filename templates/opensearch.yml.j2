@@ -1,7 +1,8 @@
 # =========================
 # OpenSearch basic settings
 # =========================
-{% if opensearch_discovery_seed_hosts | length > 1 or opensearch_initial_master_nodes | length > 1 %}
+{% set is_cluster = (opensearch_discovery_seed_hosts | length > 0) or (opensearch_initial_master_nodes | length > 0) or (groups['opensearch'] | default([]) | length > 1) %}
+{% if is_cluster %}
 # Cluster mode
 cluster.name: {{ opensearch_cluster_name }}
 {% else %}
@@ -26,18 +27,30 @@ transport.port: {{ opensearch_transport_port }}
 # =========================
 # Discovery
 # =========================
-{% if opensearch_discovery_seed_hosts | length > 1 or opensearch_initial_master_nodes | length > 1 %}
+{% if is_cluster %}
 # Cluster mode - multiple nodes
 discovery.seed_hosts:
+{% if opensearch_discovery_seed_hosts | length > 0 %}
 {% for host in opensearch_discovery_seed_hosts %}
   - {{ host }}
 {% endfor %}
+{% else %}
+{% for host in groups['opensearch'] %}
+  - {{ host }}
+{% endfor %}
+{% endif %}
 
-{% if opensearch_bootstrap_cluster | bool %}
+{% if opensearch_bootstrap_cluster | bool or (opensearch_initial_master_nodes | length > 0) %}
 cluster.initial_master_nodes:
+{% if opensearch_initial_master_nodes | length > 0 %}
 {% for node in opensearch_initial_master_nodes %}
   - {{ node }}
 {% endfor %}
+{% else %}
+{% for host in groups['opensearch'] %}
+  - {{ host }}
+{% endfor %}
+{% endif %}
 {% endif %}
 {% else %}
 # Standalone mode - single node
