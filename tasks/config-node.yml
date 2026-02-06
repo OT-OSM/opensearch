@@ -95,22 +95,18 @@
     enabled: yes
     daemon_reload: yes
 
-- name: Start OpenSearch service (non-blocking)
+- name: Start OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
     state: started
-    no_block: yes
+    daemon_reload: yes
 
-- name: Wait for OpenSearch service to be active
+# The above systemd task will block until the service is "active" because OpenSearch uses Type=notify.
+# We keep the status register for logging purposes on failure later.
+- name: Get OpenSearch service status for diagnostics
   ansible.builtin.systemd:
     name: opensearch
   register: opensearch_service_status
-  until: 
-    - opensearch_service_status.status is defined
-    - opensearch_service_status.status.ActiveState == "active"
-  retries: 30
-  delay: 5
-  failed_when: false
 
 
 - name: Get OpenSearch logs on failure
