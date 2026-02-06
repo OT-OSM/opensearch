@@ -90,7 +90,18 @@
   delay: 10
   failed_when: false
 
+- name: Get OpenSearch logs on failure
+  ansible.builtin.command: journalctl -u opensearch -n 50 --no-pager
+  register: failed_logs
+  when: opensearch_service_status.status.ActiveState != "active"
+  ignore_errors: yes
+
+- name: Display OpenSearch logs
+  ansible.builtin.debug:
+    var: failed_logs.stdout_lines
+  when: opensearch_service_status.status.ActiveState != "active"
+
 - name: Check if OpenSearch failed to start
   ansible.builtin.fail:
-    msg: "OpenSearch service failed to start. Status: {{ opensearch_service_status.status.ActiveState }}. Check logs with: journalctl -xeu opensearch.service"
+    msg: "OpenSearch service failed to start. Status: {{ opensearch_service_status.status.ActiveState }}. Check logs above or run: journalctl -xeu opensearch.service"
   when: opensearch_service_status.status.ActiveState != "active"

@@ -20,7 +20,7 @@ opensearch_node_roles: ["cluster_manager", "data", "ingest"]
 opensearch_bootstrap_memory_lock: false  # Disable to avoid bootstrap check failures
 
 # JVM Heap
-opensearch_jvm_heap_size: "1g"
+opensearch_jvm_heap_size: "512m"
 
 # System Configuration
 opensearch_vm_max_map_count: 262144
