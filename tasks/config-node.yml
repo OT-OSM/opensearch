@@ -39,8 +39,26 @@
     mode: '0640'
   notify: Restart OpenSearch
 
+- name: Create systemd override directory for OpenSearch
+  ansible.builtin.file:
+    path: /etc/systemd/system/opensearch.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Apply OpenSearch systemd overrides (timeout and limits)
+  ansible.builtin.template:
+    src: opensearch_override.conf.j2
+    dest: /etc/systemd/system/opensearch.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart OpenSearch
+
 - name: Enable and start OpenSearch service
   ansible.builtin.service:
     name: opensearch
     state: started
     enabled: yes
+    daemon_reload: yes
