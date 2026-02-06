@@ -29,6 +29,9 @@
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
   become: true
+  ignore_errors: true
+  when: opensearch_configure_hostname | default(true) | bool
+
 
 - name: Set vm.max_map_count
   ansible.posix.sysctl:

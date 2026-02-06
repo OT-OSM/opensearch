@@ -26,6 +26,8 @@ opensearch_jvm_heap_size: "512m"
 # System Configuration
 opensearch_vm_max_map_count: 262144
 opensearch_disable_swap: false  # Set to true to disable swap
+opensearch_configure_hostname: true  # Set to false if hostnames cannot be managed (e.g., in some CI/CD environments)
+
 
 # Systemd / Resource Limits
 opensearch_systemd_timeout: 300
