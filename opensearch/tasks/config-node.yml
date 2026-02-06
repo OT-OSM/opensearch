@@ -1,4 +1,28 @@
 ---
+- name: Build discovery seed hosts from inventory
+  ansible.builtin.set_fact:
+    opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
+  when: groups['opensearch'] is defined and (groups['opensearch'] | length > 1)
+
+- name: Build initial master nodes from inventory
+  ansible.builtin.set_fact:
+    opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
+  when: groups['opensearch'] is defined and (groups['opensearch'] | length > 1)
+
+- name: Ensure opensearch group exists
+  ansible.builtin.group:
+    name: opensearch
+    state: present
+    system: yes
+
+- name: Ensure opensearch user exists
+  ansible.builtin.user:
+    name: opensearch
+    state: present
+    system: yes
+    group: opensearch
+    create_home: no
+
 - name: Create OpenSearch Configuration Directory
   ansible.builtin.file:
     path: "{{ opensearch_config_dir }}"
@@ -7,7 +31,7 @@
     group: opensearch
     mode: '0750'
 
-- name: Deploy opensearch.yml
+- name: Configure Opensearch
   ansible.builtin.template:
     src: opensearch.yml.j2
     dest: "{{ opensearch_config_dir }}/opensearch.yml"
