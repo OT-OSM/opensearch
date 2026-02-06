@@ -5,17 +5,17 @@
 
 - name: Wait for OpenSearch to be ready
   ansible.builtin.uri:
-    url: "{{ opensearch_protocol }}://{{ opensearch_network_host }}:{{ opensearch_http_port }}/_cluster/health"
+    url: "{{ opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
     method: GET
-    # Auth only needed if TLS/Security is enabled
-    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
-    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
-    force_basic_auth: "{{ opensearch_use_tls }}"
+    # Always provide auth if we have it, as the security plugin might be active
+    user: "{{ opensearch_admin_username | default('admin') }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: yes
     validate_certs: no
     status_code: 200
   register: cluster_health
   until: cluster_health.status == 200
-  retries: 30
+  retries: 50
   delay: 10
 
 - name: Apply Default Index Template (Shards/Replicas)
