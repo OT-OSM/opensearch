@@ -19,6 +19,8 @@
     state: present
     allow_downgrade: yes
     allow_change_held_packages: yes
+  environment:
+    DEBIAN_FRONTEND: noninteractive
   register: dashboards_install_deb
   until: dashboards_install_deb is succeeded
   retries: 5
@@ -29,6 +31,8 @@
   ansible.builtin.package:
     name: "opensearch-dashboards-{{ opensearch_dashboards_version }}"
     state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
   register: dashboards_install_rhel
   until: dashboards_install_rhel is succeeded
   retries: 5

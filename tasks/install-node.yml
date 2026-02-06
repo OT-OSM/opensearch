@@ -7,6 +7,7 @@
     allow_change_held_packages: yes
   environment:
     OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
+    DEBIAN_FRONTEND: noninteractive
   register: opensearch_install_deb
   until: opensearch_install_deb is succeeded
   retries: 5
@@ -19,6 +20,7 @@
     state: present
   environment:
     OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
+    DEBIAN_FRONTEND: noninteractive
   register: opensearch_install_rhel
   until: opensearch_install_rhel is succeeded
   retries: 5
