@@ -14,17 +14,28 @@
   ansible.builtin.uri:
     url: "{{ opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
     method: GET
-    # Always provide auth if we have it, as the security plugin might be active
-    user: "{{ opensearch_admin_username | default('admin') }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: yes
+    # Auth only if TLS is enabled or if credentials are explicitly required
+    user: "{{ opensearch_admin_username | default('admin') if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
     validate_certs: no
     status_code: 200
-    timeout: 5
+    timeout: 30
   register: cluster_health
   until: cluster_health.status == 200
   retries: 100
   delay: 2
+  ignore_errors: yes
+
+- name: Display OpenSearch Health Check Error on Failure
+  ansible.builtin.debug:
+    msg: "Health check failed with status {{ cluster_health.status | default('unknown') }}. Error: {{ cluster_health.msg | default('No error message') }}. Content: {{ cluster_health.content | default('No content') }}"
+  when: cluster_health.status | default(0) != 200
+
+- name: Fail if OpenSearch is not ready
+  ansible.builtin.fail:
+    msg: "OpenSearch health check failed to reach 200 OK after retries. Manual intervention may be required."
+  when: cluster_health.status | default(0) != 200
 
 - name: Apply Default Index Template (Shards/Replicas)
   ansible.builtin.uri:
