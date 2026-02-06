@@ -4,7 +4,10 @@
     name:
       - sudo
     state: present
-  ignore_errors: yes
+  register: rh_deps_install
+  until: rh_deps_install is succeeded
+  retries: 5
+  delay: 5
 
 - name: Add OpenSearch Yum Repository
   ansible.builtin.get_url:

@@ -1,7 +1,7 @@
 # =========================
 # OpenSearch basic settings
 # =========================
-{% set is_cluster = (opensearch_discovery_seed_hosts | length > 0) or (opensearch_initial_master_nodes | length > 0) or (groups['opensearch'] | default([]) | length > 1) %}
+{% set is_cluster = (opensearch_enable_cluster_mode | bool) and ((opensearch_discovery_seed_hosts | length > 0) or (opensearch_initial_master_nodes | length > 0) or (groups['opensearch'] | default([]) | length > 1)) %}
 {% if is_cluster %}
 # Cluster mode
 cluster.name: {{ opensearch_cluster_name }}

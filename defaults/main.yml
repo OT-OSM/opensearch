@@ -1,12 +1,13 @@
 ---
 # Version
 opensearch_version: "2.11.0"
-opensearch_major_version: "2.x"  # Used for repository URLs
+opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"  # Dynamic major version
 
 # Installation Toggles
 opensearch_install_node: true
 opensearch_install_dashboard: true
 opensearch_bootstrap_cluster: false  # Disable for single node
+opensearch_enable_cluster_mode: true  # Toggle for cluster vs standalone mode
 
 # OpenSearch Cluster Configuration
 opensearch_cluster_name: "opensearch-cluster"

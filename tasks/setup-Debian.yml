@@ -8,10 +8,11 @@
       - ca-certificates
     state: present
     update_cache: yes
+    cache_valid_time: 3600  # Only update cache if older than 1 hour
   register: deps_install
   until: deps_install is succeeded
   retries: 5
-  delay: 30
+  delay: 5
 
 - name: Import OpenSearch GPG Key
   ansible.builtin.apt_key:

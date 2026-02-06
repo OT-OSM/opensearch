@@ -12,7 +12,7 @@
   register: opensearch_install_deb
   until: opensearch_install_deb is succeeded
   retries: 5
-  delay: 30
+  delay: 5
   when: ansible_os_family == 'Debian'
 
 - name: Install OpenSearch Package (RedHat)
@@ -25,5 +25,5 @@
   register: opensearch_install_rhel
   until: opensearch_install_rhel is succeeded
   retries: 5
-  delay: 30
+  delay: 5
   when: ansible_os_family == 'RedHat'
