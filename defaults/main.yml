@@ -1,6 +1,6 @@
 ---
 # Version
-opensearch_version: "2.11.0"
+opensearch_version: "2.11.1"
 opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"  # Dynamic major version
 
 # Installation Toggles
