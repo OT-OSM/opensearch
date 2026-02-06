@@ -18,6 +18,7 @@
     name: "opensearch-dashboards={{ opensearch_dashboards_version }}"
     state: present
     allow_downgrade: yes
+    allow_change_held_packages: yes
   register: dashboards_install_deb
   until: dashboards_install_deb is succeeded
   retries: 5

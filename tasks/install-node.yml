@@ -4,6 +4,7 @@
     name: "opensearch={{ opensearch_version }}"
     state: present
     allow_downgrade: yes
+    allow_change_held_packages: yes
   environment:
     OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
   register: opensearch_install_deb
