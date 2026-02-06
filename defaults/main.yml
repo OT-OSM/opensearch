@@ -6,7 +6,7 @@ opensearch_major_version: "2.x"  # Used for repository URLs
 # Installation Toggles
 opensearch_install_node: true
 opensearch_install_dashboard: true
-opensearch_bootstrap_cluster: true
+opensearch_bootstrap_cluster: false  # Disable for single node
 
 # OpenSearch Cluster Configuration
 opensearch_cluster_name: "opensearch-cluster"
@@ -17,6 +17,7 @@ opensearch_transport_port: 9300
 opensearch_discovery_seed_hosts: []
 opensearch_initial_master_nodes: []
 opensearch_node_roles: ["cluster_manager", "data", "ingest"]
+opensearch_bootstrap_memory_lock: false  # Disable to avoid bootstrap check failures
 
 # JVM Heap
 opensearch_jvm_heap_size: "1g"
