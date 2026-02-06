@@ -13,11 +13,23 @@
     mode: '0644'
   when: ansible_os_family == 'RedHat'
 
-- name: Install OpenSearch Dashboards
-  ansible.builtin.package:
-    name: "{{ 'opensearch-dashboards-' ~ opensearch_dashboards_version if ansible_os_family == 'RedHat' else 'opensearch-dashboards=' ~ opensearch_dashboards_version }}"
+- name: Install OpenSearch Dashboards (Debian)
+  ansible.builtin.apt:
+    name: "opensearch-dashboards={{ opensearch_dashboards_version }}"
     state: present
-  register: dashboards_install
-  until: dashboards_install is succeeded
+    allow_downgrade: yes
+  register: dashboards_install_deb
+  until: dashboards_install_deb is succeeded
   retries: 5
   delay: 30
+  when: ansible_os_family == 'Debian'
+
+- name: Install OpenSearch Dashboards (RedHat)
+  ansible.builtin.package:
+    name: "opensearch-dashboards-{{ opensearch_dashboards_version }}"
+    state: present
+  register: dashboards_install_rhel
+  until: dashboards_install_rhel is succeeded
+  retries: 5
+  delay: 30
+  when: ansible_os_family == 'RedHat'
