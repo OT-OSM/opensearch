@@ -1,0 +1,22 @@
+# Secrets and Keys
+*.pem
+*.key
+*.pub
+
+# Ansible Inventory and Variables
+inventory.ini
+inventory/
+group_vars/
+host_vars/
+
+# Ad-hoc / Test Playbooks
+test-site.yml
+diagnose.yml
+pr_payload.json
+pr_body.txt
+
+# OS/IDE junk
+.DS_Store
+.vscode/
+.idea/
+*.swp
