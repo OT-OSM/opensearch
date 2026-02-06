@@ -11,13 +11,19 @@
 - name: Configuring the opensearch DNS in /etc/hosts
   ansible.builtin.blockinfile:
     block: |
-      {{ hostvars[item]['ansible_default_ipv4']['address'] }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
+      {% set host_ip = hostvars[item]['ansible_host'] | default(hostvars[item]['ansible_default_ipv4']['address'] | default('')) %}
+      {% if host_ip %}
+      {{ host_ip }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
+      {% endif %}
     path: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
   become: true
   with_items:
     - "{{ groups['opensearch'] | default([]) }}"
-  when: groups['opensearch'] is defined
+  when: 
+    - groups['opensearch'] is defined
+    - hostvars[item] is defined
+
 
 - name: Setting up hostname of opensearch nodes
   ansible.builtin.hostname:
