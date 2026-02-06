@@ -20,10 +20,10 @@
     force_basic_auth: "{{ opensearch_use_tls }}"
     validate_certs: no
     status_code: 200
-    timeout: 30
+    timeout: 5
   register: cluster_health
   until: cluster_health.status == 200
-  retries: 100
+  retries: 300
   delay: 2
   ignore_errors: yes
 
