@@ -1,14 +1,25 @@
 ---
+- name: Ensure Java is installed
+  ansible.builtin.package:
+    name: "{{ opensearch_java_package }}"
+    state: present
+  register: java_install
+  until: java_install is succeeded
+  retries: 5
+  delay: 30
+
 - name: Set vm.max_map_count
   ansible.posix.sysctl:
     name: vm.max_map_count
-    value: "262144"
+    value: "{{ opensearch_vm_max_map_count }}"
     state: present
     reload: true
 
 - name: Disable swap (optional but recommended for OpenSearch)
   ansible.builtin.command: swapoff -a
-  when: ansible_swaptotal_mb > 0
+  when: 
+    - ansible_swaptotal_mb > 0
+    - opensearch_disable_swap | bool
   changed_when: false
   # Note: To permanently disable swap, /etc/fstab modification is needed. 
   # For this role, we'll stick to runtime command or trust the user environment.

@@ -1,7 +1,11 @@
 ---
 - name: Install OpenSearch Package
   ansible.builtin.package:
-    name: opensearch
+    name: "{{ 'opensearch-' ~ opensearch_version if ansible_os_family == 'RedHat' else 'opensearch=' ~ opensearch_version }}"
     state: present
   environment:
     OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
+  register: opensearch_install
+  until: opensearch_install is succeeded
+  retries: 5
+  delay: 30

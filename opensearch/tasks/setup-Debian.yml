@@ -1,0 +1,25 @@
+---
+- name: Install dependencies for Debian/Ubuntu
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+    state: present
+    update_cache: yes
+  register: deps_install
+  until: deps_install is succeeded
+  retries: 5
+  delay: 30
+
+- name: Import OpenSearch GPG Key
+  ansible.builtin.apt_key:
+    url: https://artifacts.opensearch.org/publickeys/opensearch.pgp
+    state: present
+
+- name: Add OpenSearch repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_major_version }}/apt stable main"
+    state: present
+    filename: opensearch-{{ opensearch_major_version }}
