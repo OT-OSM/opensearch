@@ -8,10 +8,15 @@ inventory.ini
 inventory/
 group_vars/
 host_vars/
+vars/
 
-# Ad-hoc / Test Playbooks
+# Playbooks and Tests
+site.yml
 test-site.yml
 diagnose.yml
+tests/
+
+# PR Metadata
 pr_payload.json
 pr_body.txt
 
@@ -20,3 +25,4 @@ pr_body.txt
 .vscode/
 .idea/
 *.swp
+.gitignore
