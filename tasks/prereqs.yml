@@ -25,12 +25,19 @@
     - hostvars[item] is defined
 
 
+- name: Check if /etc/hostname is writable
+  ansible.builtin.stat:
+    path: /etc/hostname
+  register: hostname_file_stat
+
 - name: Setting up hostname of opensearch nodes
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
   become: true
-  ignore_errors: true
-  when: opensearch_configure_hostname | default(true) | bool
+  when: 
+    - opensearch_configure_hostname | default(true) | bool
+    - hostname_file_stat.stat.writeable | default(false)
+  failed_when: false
 
 
 - name: Set vm.max_map_count
