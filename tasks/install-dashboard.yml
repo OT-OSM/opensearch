@@ -19,6 +19,7 @@
     state: present
     allow_downgrade: yes
     allow_change_held_packages: yes
+    dpkg_options: 'force-confdef,force-confold'
   environment:
     DEBIAN_FRONTEND: noninteractive
   register: dashboards_install_deb

@@ -5,6 +5,7 @@
     state: present
     allow_downgrade: yes
     allow_change_held_packages: yes
+    dpkg_options: 'force-confdef,force-confold'
   environment:
     OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
     DEBIAN_FRONTEND: noninteractive
