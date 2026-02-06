@@ -1,0 +1,31 @@
+---
+- name: Install & Configure OpenSearch Cluster with HA
+  hosts: opensearch
+  become: true
+  gather_facts: true
+
+  roles:
+    - opensearch
+
+  post_tasks:
+
+    - name: Display cluster information
+      ansible.builtin.debug:
+        msg:
+          - "========================================="
+          - "OpenSearch Cluster Deployment Complete!"
+          - "========================================="
+          - "Cluster Name: {{ opensearch_cluster_name }}"
+          - "Number of Nodes: {{ groups['opensearch'] | length }}"
+          - "TLS Enabled: {{ opensearch_use_tls }}"
+          - "Dashboards Installed: {{ opensearch_install_dashboard | default(true) }}"
+          - ""
+          - "Access OpenSearch:"
+          - "  curl -XGET '{{ 'https' if opensearch_use_tls else 'http' }}://{{ hostvars[groups['opensearch'][0]].ansible_host }}:{{ opensearch_http_port }}/_cluster/health?pretty'"
+          - ""
+          - "Access Dashboards:"
+          - "  {{ 'https' if opensearch_use_tls else 'http' }}://{{ hostvars[groups['opensearch'][0]].ansible_host }}:{{ opensearch_dashboards_port }}"
+          - "========================================="
+      run_once: true
+      delegate_to: localhost
+

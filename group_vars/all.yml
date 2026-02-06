@@ -1,0 +1,55 @@
+# ===============================
+# Cluster
+# ===============================
+opensearch_cluster_name: "opensearch-prod"
+
+# Seed hosts must be IPs
+opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+# Initial cluster manager nodes must be node names
+opensearch_initial_master_nodes:
+  - "os-a"
+  - "os-b"
+  - "os-c"
+
+# ===============================
+# Node settings
+# ===============================
+opensearch_node_roles:
+  - cluster_manager
+  - data
+  - ingest
+
+# ===============================
+# Security + TLS (DISABLED FOR NOW)
+# ===============================
+opensearch_security_enabled: false
+opensearch_use_tls: false
+opensearch_http_ssl_enabled: false
+opensearch_transport_ssl_enabled: false
+
+opensearch_initialize_security: false
+
+# ===============================
+# JVM
+# ===============================
+opensearch_jvm_heap_size: "512m"
+
+# ===============================
+# Dashboards
+# ===============================
+opensearch_dashboards_enabled: true
+
+opensearch_dashboards_host: "0.0.0.0"
+opensearch_dashboards_port: 5601
+
+opensearch_dashboards_opensearch_hosts:
+  - "http://{{ hostvars['os-a']['ansible_host'] }}:9200"
+  - "http://{{ hostvars['os-b']['ansible_host'] }}:9200"
+  - "http://{{ hostvars['os-c']['ansible_host'] }}:9200"
+
+# ===============================
+# Index defaults
+# ===============================
+# Note: These are index-level settings and should be set when creating indices,
+# not in opensearch.yml node configuration

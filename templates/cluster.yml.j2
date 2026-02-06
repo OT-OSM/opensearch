@@ -1,0 +1,15 @@
+cluster.name: {{ clusterName }}
+
+node.name: {{ inventory_hostname }}
+
+network.host: {{ ansible_default_ipv4.address }}
+
+http.port: {{ OpenSearchPort }}
+
+bootstrap.memory_lock: true
+
+discovery.seed_hosts: [ {{ cluster_nodes }} ]
+
+node.roles: [ {{ hostvars[inventory_hostname]['node_type'] }} ]
+
+cluster.initial_master_nodes: [ {{ cluster_master_nodes }} ]

@@ -1,0 +1,9 @@
+cluster.name: {{ clusterName }}
+
+node.name: {{ inventory_hostname }}
+
+network.host: {{ ansible_default_ipv4.address }}
+
+http.port: {{ OpenSearchPort }}
+
+discovery.type: "{{ DiscoveryType }}"

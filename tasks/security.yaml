@@ -1,0 +1,94 @@
+---
+- name: Create local temporary directory for certificates generation
+  local_action:
+    module: file
+    path: "{{ LocalSystemDest }}"
+    state: directory
+  run_once: true
+  register: configuration
+  become: false
+
+- name: Download certificates generation tool
+  local_action:
+    module: unarchive
+    src: "{{ SecurityFileUrl }}"
+    dest: "{{ LocalSystemDest }}"
+    remote_src: true
+  run_once: true
+  when: configuration.changed
+  become: false
+
+- name: Make the executable file
+  local_action:
+    module: file
+    dest: "{{ LocalSystemDest }}/tools/sgtlstool.sh"
+    mode: a+x
+  run_once: true
+  when: configuration.changed
+  become: false
+
+- name: Prepare the certificates generation template file
+  local_action:
+    module: template
+    src: tlsconfig.yml.j2
+    dest: "{{ LocalSystemDest }}/config/tlsconfig.yml"
+  run_once: true
+  when: configuration.changed
+  become: false
+
+- name: Generate the node & admin certificates in local
+  local_action:
+    module: command {{ LocalSystemDest }}/tools/sgtlstool.sh -c {{ LocalSystemDest }}/config/tlsconfig.yml -ca -crt -t {{ LocalSystemDest }}/config/
+  run_once: true
+  when: configuration.changed
+  become: false
+
+- name: Copying Respected Certificates to there nodes
+  copy:
+    src: "{{ LocalSystemDest }}/config/{{ item }}"
+    dest: "{{ Opensearch_Dir }}/config"
+    mode: 0644
+  with_items:
+    - root-ca.pem
+    - root-ca.key
+    - "{{ inventory_hostname }}.key"
+    - "{{ inventory_hostname }}.pem"
+    - "{{ inventory_hostname }}_http.key"
+    - "{{ inventory_hostname }}_http.pem"
+    - admin.key
+    - admin.pem
+  become: true
+
+- name: Adding security files details in configuration file
+  blockinfile:
+    block: "{{ lookup('template', 'templates/security_conf.yml') }}"
+    dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
+    insertafter: EOF
+    marker: "## {mark} Common Configuration Security ##"
+  become: true
+
+- name: Copy the security configuration file 2 to cluster
+  blockinfile:
+    block: "{{ lookup('file', '{{ LocalSystemDest }}/config/{{ inventory_hostname }}_elasticsearch_config_snippet.yml') }}"
+    dest: "{{ Opensearch_Dir }}/config/opensearch.yml"
+    backup: true
+    insertafter: EOF
+    marker: "## {mark} opensearch Security Node & Admin certificates configuration ##"
+  become: true
+
+- name: Confuguring newly added security configuration
+  command: sed -i 's/searchguard/plugins.security/g' {{ Opensearch_Dir }}/config/opensearch.yml
+  become: true
+
+- name: Recursively change user and group
+  file:
+    path: "{{ Opensearch_Dir }}"
+    owner: "{{ UserName }}"
+    group: "{{ UserName }}"
+    recurse: true
+  become: true
+  notify:
+    - Restart opensearch
+
+- name: Running all handlers for opensearch nodes
+  meta: flush_handlers

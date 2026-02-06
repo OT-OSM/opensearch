@@ -1,0 +1,18 @@
+[opensearch]
+opensearchnode1 ansible_ssh_host=3.21.134.27 node_type=master,data 
+opensearchnode2 ansible_ssh_host=3.14.67.94 node_type=master,data 
+opensearchnode3 ansible_ssh_host=18.219.214.120 node_type=master,data 
+
+[opensearch:vars]
+ansible_ssh_user=ubuntu
+ansible_ssh_private_key_file= 
+
+[cluster_nodes]
+opensearchnode1
+opensearchnode2
+opensearchnode3
+
+[cluster_master_nodes]
+opensearchnode1
+opensearchnode2
+opensearchnode3
