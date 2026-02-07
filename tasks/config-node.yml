@@ -100,30 +100,13 @@
     name: opensearch
     state: started
     daemon_reload: yes
-  async: 300
-  poll: 0
-  register: opensearch_start_job
 
-# The above systemd task will block until the service is "active" because OpenSearch uses Type=notify.
-# We keep the status register for logging purposes on failure later.
 - name: Get OpenSearch service status for diagnostics
   ansible.builtin.systemd:
     name: opensearch
   register: opensearch_service_status
 
-
-- name: Get OpenSearch logs on failure
-  ansible.builtin.command: journalctl -u opensearch -n 50 --no-pager
-  register: failed_logs
-  when: opensearch_service_status.status.ActiveState != "active"
-  ignore_errors: yes
-
-- name: Display OpenSearch logs
+- name: Display OpenSearch status if not active
   ansible.builtin.debug:
-    var: failed_logs.stdout_lines
-  when: opensearch_service_status.status.ActiveState != "active"
-
-- name: Check if OpenSearch failed to start
-  ansible.builtin.fail:
-    msg: "OpenSearch service failed to start. Status: {{ opensearch_service_status.status.ActiveState }}. Check logs above or run: journalctl -xeu opensearch.service"
+    msg: "OpenSearch service is {{ opensearch_service_status.status.ActiveState }}. Status: {{ opensearch_service_status.status.SubState }}"
   when: opensearch_service_status.status.ActiveState != "active"

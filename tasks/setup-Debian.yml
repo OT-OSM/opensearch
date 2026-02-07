@@ -1,4 +1,10 @@
 ---
+- name: Fix broken dependencies
+  ansible.builtin.command: apt-get install -f -y
+  become: true
+  register: fix_broken
+  changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in fix_broken.stdout"
+
 - name: Install dependencies for Debian/Ubuntu
   ansible.builtin.apt:
     name:
