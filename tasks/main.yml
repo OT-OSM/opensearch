@@ -25,10 +25,6 @@
 - name: Ensure OpenSearch is started before proceeding
   ansible.builtin.meta: flush_handlers
 
-- name: Configure Cluster Health Check
-  ansible.builtin.include_tasks: configure-cluster.yml
-  when: opensearch_install_node
-
 - name: Install OpenSearch Dashboards
   ansible.builtin.include_tasks: install-dashboard.yml
   when: opensearch_install_dashboard
@@ -36,3 +32,7 @@
 - name: Configure OpenSearch Dashboards
   ansible.builtin.include_tasks: config-dashboard.yml
   when: opensearch_install_dashboard
+
+- name: Configure Cluster Health Check
+  ansible.builtin.include_tasks: configure-cluster.yml
+  when: opensearch_install_node

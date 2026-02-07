@@ -23,8 +23,8 @@
     timeout: 5
   register: cluster_health
   until: cluster_health.status == 200
-  retries: 300
-  delay: 2
+  retries: 600
+  delay: 1
   ignore_errors: yes
 
 - name: Display OpenSearch Health Check Error on Failure
