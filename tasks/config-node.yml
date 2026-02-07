@@ -100,6 +100,9 @@
     name: opensearch
     state: started
     daemon_reload: yes
+  async: 300
+  poll: 0
+  register: opensearch_start_job
 
 # The above systemd task will block until the service is "active" because OpenSearch uses Type=notify.
 # We keep the status register for logging purposes on failure later.

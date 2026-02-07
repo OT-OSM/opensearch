@@ -60,3 +60,6 @@
     name: opensearch-dashboards
     state: started
     enabled: yes
+  async: 300
+  poll: 0
+  register: dashboards_start_job
