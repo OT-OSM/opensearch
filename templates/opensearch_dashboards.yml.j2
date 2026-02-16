@@ -1,8 +1,15 @@
+# ===========================
+# OpenSearch Dashboards Configuration
+# Managed by Ansible
+# ===========================
+
 server.port: {{ opensearch_dashboards_port }}
 server.host: "{{ opensearch_dashboards_host }}"
 
-# Connection to OpenSearch Node
-{% if opensearch_use_tls %}
+# ===========================
+# OpenSearch Connection
+# ===========================
+{% if opensearch_use_tls | bool %}
 opensearch.hosts: ["https://{{ opensearch_dashboards_opensearch_host }}"]
 opensearch.ssl.verificationMode: none
 opensearch.username: "{{ opensearch_dashboards_admin_username }}"
@@ -11,11 +18,36 @@ opensearch.password: "{{ opensearch_admin_password }}"
 opensearch.hosts: ["http://{{ opensearch_dashboards_opensearch_host }}"]
 {% endif %}
 
+# ===========================
 # Dashboards Server TLS
-{% if opensearch_use_tls %}
+# ===========================
+{% if opensearch_use_tls | bool %}
 server.ssl.enabled: true
 server.ssl.certificate: {{ opensearch_dashboards_config_dir }}/certs/node.pem
 server.ssl.key: {{ opensearch_dashboards_config_dir }}/certs/node-key.pem
 {% else %}
 server.ssl.enabled: false
+opensearch_security.enabled: false
+{% endif %}
+
+# ===========================
+# SSO Configuration
+# ===========================
+{% if opensearch_enable_sso | bool and opensearch_use_tls | bool %}
+
+{% if opensearch_auth_type == 'openid' %}
+opensearch_security.auth.type: "openid"
+opensearch_security.openid.connect_url: "{{ opensearch_openid_connect_url }}"
+opensearch_security.openid.client_id: "{{ opensearch_openid_client_id }}"
+opensearch_security.openid.client_secret: "{{ opensearch_openid_client_secret }}"
+opensearch_security.openid.scope: "{{ opensearch_openid_scope }}"
+{% if opensearch_openid_base_redirect_url %}
+opensearch_security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_url }}"
+{% endif %}
+{% endif %}
+
+{% if opensearch_auth_type == 'saml' %}
+opensearch_security.auth.type: "saml"
+{% endif %}
+
 {% endif %}

@@ -1,32 +1,17 @@
 ---
-- name: Fix broken dependencies
+- name: Fix broken apt dependencies
   ansible.builtin.command: apt-get install -f -y
   become: true
   register: fix_broken
   changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in fix_broken.stdout"
 
-- name: Install dependencies for Debian/Ubuntu
+- name: Install required dependencies (Debian/Ubuntu)
   ansible.builtin.apt:
-    name:
-      - curl
-      - gnupg
-      - lsb-release
-      - ca-certificates
+    name: "{{ opensearch_prerequisites }}"
     state: present
-    update_cache: yes
-    cache_valid_time: 3600  # Only update cache if older than 1 hour
+    update_cache: true
+    cache_valid_time: 3600
   register: deps_install
   until: deps_install is succeeded
   retries: 5
   delay: 5
-
-- name: Import OpenSearch GPG Key
-  ansible.builtin.apt_key:
-    url: https://artifacts.opensearch.org/publickeys/opensearch.pgp
-    state: present
-
-- name: Add OpenSearch repository
-  ansible.builtin.apt_repository:
-    repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch/{{ opensearch_major_version }}/apt stable main"
-    state: present
-    filename: opensearch-{{ opensearch_major_version }}

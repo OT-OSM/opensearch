@@ -1,14 +1,32 @@
 ---
-- name: Ensure Java is installed
+# ===========================
+# Java Installation
+# ===========================
+- name: Install Java (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ opensearch_java_package }}"
+    state: present
+    update_cache: true
+  register: java_install_deb
+  until: java_install_deb is succeeded
+  retries: 5
+  delay: 30
+  when: ansible_os_family == 'Debian'
+
+- name: Install Java (RedHat/Amazon)
   ansible.builtin.package:
     name: "{{ opensearch_java_package }}"
     state: present
-  register: java_install
-  until: java_install is succeeded
+  register: java_install_rh
+  until: java_install_rh is succeeded
   retries: 5
   delay: 30
+  when: ansible_os_family == 'RedHat'
 
-- name: Configuring the opensearch DNS in /etc/hosts
+# ===========================
+# DNS / Hostname
+# ===========================
+- name: Configure OpenSearch DNS in /etc/hosts
   ansible.builtin.blockinfile:
     block: |
       {% set host_ip = hostvars[item]['ansible_host'] | default(hostvars[item]['ansible_default_ipv4']['address'] | default('')) %}
@@ -18,28 +36,28 @@
     path: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
   become: true
-  with_items:
-    - "{{ groups['opensearch'] | default([]) }}"
-  when: 
+  loop: "{{ groups['opensearch'] | default([]) }}"
+  when:
     - groups['opensearch'] is defined
     - hostvars[item] is defined
-
 
 - name: Check if /etc/hostname is writable
   ansible.builtin.stat:
     path: /etc/hostname
   register: hostname_file_stat
 
-- name: Setting up hostname of opensearch nodes
+- name: Set hostname for OpenSearch nodes
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
   become: true
-  when: 
-    - opensearch_configure_hostname | default(true) | bool
+  when:
+    - opensearch_configure_hostname | bool
     - hostname_file_stat.stat.writeable | default(false)
   failed_when: false
 
-
+# ===========================
+# Kernel Tuning
+# ===========================
 - name: Set vm.max_map_count
   ansible.posix.sysctl:
     name: vm.max_map_count
@@ -48,7 +66,7 @@
     reload: true
   become: true
 
-- name: Setting file max value on opensearch nodes
+- name: Set fs.file-max
   ansible.posix.sysctl:
     name: fs.file-max
     value: "{{ opensearch_systemd_limit_nofile }}"
@@ -56,9 +74,9 @@
     reload: true
   become: true
 
-- name: Disable swap (optional but recommended for OpenSearch)
+- name: Disable swap (if configured)
   ansible.builtin.command: swapoff -a
-  when: 
+  when:
     - ansible_swaptotal_mb | default(0) > 0
     - opensearch_disable_swap | bool
   changed_when: false

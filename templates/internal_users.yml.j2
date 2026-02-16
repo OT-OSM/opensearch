@@ -10,8 +10,8 @@ _meta:
   - "admin"
   description: "Admin user"
 
-# Keep kibanaserver user for Dashboards internal use if needed, or mapping
+# Keep kibanaserver user for Dashboards internal use
 kibanaserver:
-  hash: "$2a$12$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrU3H."
+  hash: "{{ opensearch_kibanaserver_password_hash }}"
   reserved: true
-  description: "Demo kibanaserver user"
+  description: "Dashboards internal user"

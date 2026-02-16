@@ -1,33 +1,42 @@
 ---
+# ===========================
+# User & Group
+# ===========================
 - name: Ensure opensearch group exists
   ansible.builtin.group:
     name: opensearch
     state: present
-    system: yes
+    system: true
 
 - name: Ensure opensearch user exists
   ansible.builtin.user:
     name: opensearch
     state: present
-    system: yes
+    system: true
     group: opensearch
-    create_home: no
+    create_home: false
 
-- name: Create OpenSearch Configuration Directory
+# ===========================
+# Configuration Directory
+# ===========================
+- name: Create OpenSearch configuration directory
   ansible.builtin.file:
     path: "{{ opensearch_config_dir }}"
     state: directory
     owner: opensearch
     group: opensearch
-    mode: '0750'
+    mode: "0750"
 
-- name: Configure Opensearch
+# ===========================
+# Configuration Templates
+# ===========================
+- name: Deploy opensearch.yml configuration
   ansible.builtin.template:
     src: opensearch.yml.j2
     dest: "{{ opensearch_config_dir }}/opensearch.yml"
     owner: opensearch
     group: opensearch
-    mode: '0640'
+    mode: "0640"
   notify: Restart OpenSearch
 
 - name: Deploy jvm.options
@@ -36,77 +45,84 @@
     dest: "{{ opensearch_config_dir }}/jvm.options"
     owner: opensearch
     group: opensearch
-    mode: '0640'
+    mode: "0640"
   notify: Restart OpenSearch
 
+# ===========================
+# System Limits
+# ===========================
 - name: Configure system limits for opensearch user
   ansible.builtin.lineinfile:
     path: /etc/security/limits.conf
     line: "{{ item }}"
-    create: yes
+    create: true
+    mode: "0644"
   loop:
-    - "opensearch soft nofile 65536"
-    - "opensearch hard nofile 65536"
-    - "opensearch soft nproc 4096"
-    - "opensearch hard nproc 4096"
+    - "opensearch soft nofile {{ opensearch_systemd_limit_nofile }}"
+    - "opensearch hard nofile {{ opensearch_systemd_limit_nofile }}"
+    - "opensearch soft nproc {{ opensearch_systemd_limit_nproc }}"
+    - "opensearch hard nproc {{ opensearch_systemd_limit_nproc }}"
     - "opensearch soft memlock unlimited"
     - "opensearch hard memlock unlimited"
 
+# ===========================
+# Systemd Configuration
+# ===========================
+# We use a systemd override (drop-in) file so that our configuration persists
+# across package upgrades and doesn't conflict with the vendor-supplied unit file.
 - name: Create systemd override directory for OpenSearch
   ansible.builtin.file:
     path: /etc/systemd/system/opensearch.service.d
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
 
-- name: Apply OpenSearch systemd overrides (timeout and limits)
+- name: Deploy OpenSearch systemd overrides
   ansible.builtin.template:
     src: opensearch_override.conf.j2
     dest: /etc/systemd/system/opensearch.service.d/override.conf
     owner: root
     group: root
-    mode: '0644'
-  notify: Restart OpenSearch
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart OpenSearch
 
-- name: Set OpenSearch Environment File (Debian)
+# ===========================
+# Environment File
+# ===========================
+- name: Deploy OpenSearch environment file (Debian)
   ansible.builtin.template:
     src: opensearch.env.j2
     dest: /etc/default/opensearch
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when: ansible_os_family == 'Debian'
   notify: Restart OpenSearch
 
-- name: Set OpenSearch Environment File (RedHat)
+- name: Deploy OpenSearch environment file (RedHat)
   ansible.builtin.template:
     src: opensearch.env.j2
     dest: /etc/sysconfig/opensearch
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when: ansible_os_family == 'RedHat'
   notify: Restart OpenSearch
 
+# ===========================
+# Service Management
+# ===========================
 - name: Enable OpenSearch service
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: opensearch
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true
 
 - name: Start OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
     state: started
-    daemon_reload: yes
-
-- name: Get OpenSearch service status for diagnostics
-  ansible.builtin.systemd:
-    name: opensearch
-  register: opensearch_service_status
-
-- name: Display OpenSearch status if not active
-  ansible.builtin.debug:
-    msg: "OpenSearch service is {{ opensearch_service_status.status.ActiveState }}. Status: {{ opensearch_service_status.status.SubState }}"
-  when: opensearch_service_status.status.ActiveState != "active"
+    daemon_reload: true

@@ -1,38 +1,58 @@
 ---
-- name: Check OS family
+- name: Validate supported OS family
   ansible.builtin.fail:
-    msg: "OS family {{ ansible_os_family }} is not supported"
+    msg: "OS family '{{ ansible_os_family }}' is not supported. Supported: Debian, RedHat"
   when: ansible_os_family not in ['Debian', 'RedHat']
 
-- name: Configure Prerequisites (sysctl, etc.)
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "vars/{{ ansible_distribution }}.yml"
+    - "vars/{{ ansible_os_family }}.yml"
+
+- name: Configure system prerequisites
   ansible.builtin.include_tasks: prereqs.yml
 
-- name: Setup repositories for {{ ansible_os_family }} family
-  ansible.builtin.include_tasks: setup-{{ ansible_os_family }}.yml
+- name: Setup repositories for {{ ansible_os_family }}
+  ansible.builtin.include_tasks: "setup-{{ ansible_os_family }}.yml"
 
-- name: Install OpenSearch Node
+- name: Install OpenSearch node
   ansible.builtin.include_tasks: install-node.yml
-  when: opensearch_install_node
+  when: opensearch_install_node | bool
 
-- name: Configure OpenSearch Node
+- name: Configure OpenSearch node
   ansible.builtin.include_tasks: config-node.yml
-  when: opensearch_install_node
+  when: opensearch_install_node | bool
 
-- name: Configure Security (TLS/Auth)
+- name: Configure security (TLS/Auth)
   ansible.builtin.include_tasks: security-config.yml
-  when: opensearch_install_node
+  when:
+    - opensearch_install_node | bool
+    - opensearch_use_tls | bool
 
-- name: Ensure OpenSearch is started before proceeding
+- name: Flush handlers to ensure OpenSearch is started
   ansible.builtin.meta: flush_handlers
+
+- name: Configure access control
+  ansible.builtin.include_tasks: access-control.yml
+  when:
+    - opensearch_install_node | bool
+    - opensearch_access_control_enabled | bool
+
+- name: Configure metrics and monitoring
+  ansible.builtin.include_tasks: metrics.yml
+  when:
+    - opensearch_install_node | bool
+    - opensearch_metrics_enabled | bool
 
 - name: Install OpenSearch Dashboards
   ansible.builtin.include_tasks: install-dashboard.yml
-  when: opensearch_install_dashboard
+  when: opensearch_install_dashboard | bool
 
 - name: Configure OpenSearch Dashboards
   ansible.builtin.include_tasks: config-dashboard.yml
-  when: opensearch_install_dashboard
+  when: opensearch_install_dashboard | bool
 
-- name: Configure Cluster Health Check
-  ansible.builtin.include_tasks: configure-cluster.yml
-  when: opensearch_install_node
+- name: Verify cluster health
+  ansible.builtin.include_tasks: verify-cluster.yml
+  when: opensearch_install_node | bool

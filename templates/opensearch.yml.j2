@@ -1,12 +1,16 @@
-# =========================
-# OpenSearch basic settings
-# =========================
+# ===========================
+# OpenSearch Configuration
+# Managed by Ansible
+# ===========================
+
 {% set is_cluster = (opensearch_enable_cluster_mode | bool) and ((opensearch_discovery_seed_hosts | length > 0) or (opensearch_initial_master_nodes | length > 0) or (groups['opensearch'] | default([]) | length > 1)) %}
+
+# ===========================
+# Cluster / Node
+# ===========================
 {% if is_cluster %}
-# Cluster mode
 cluster.name: {{ opensearch_cluster_name }}
 {% else %}
-# Standalone mode
 cluster.name: {{ opensearch_cluster_name }}-standalone
 {% endif %}
 node.name: {{ opensearch_node_name }}
@@ -14,29 +18,25 @@ node.name: {{ opensearch_node_name }}
 path.data: {{ opensearch_data_path }}
 path.logs: {{ opensearch_logs_path }}
 
-
-# =========================
-# Network
-# =========================
-
+# ===========================
+# Network & Connectivity
+# ===========================
 network.host: {{ opensearch_network_host }}
 http.port: {{ opensearch_http_port }}
 transport.port: {{ opensearch_transport_port }}
 
-
-# =========================
+# ===========================
 # Discovery
-# =========================
+# ===========================
 {% if is_cluster %}
-# Cluster mode - multiple nodes
 discovery.seed_hosts:
 {% if opensearch_discovery_seed_hosts | length > 0 %}
 {% for host in opensearch_discovery_seed_hosts %}
-  - {{ host }}
+  - {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_host']) | default(host) }}
 {% endfor %}
 {% else %}
 {% for host in groups['opensearch'] %}
-  - {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_host']) | default(host) }}
+  - {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_default_ipv4']['address']) | default(hostvars[host]['ansible_host']) | default(host) }}
 {% endfor %}
 {% endif %}
 
@@ -53,72 +53,64 @@ cluster.initial_master_nodes:
 {% endif %}
 {% endif %}
 {% else %}
-# Standalone mode - single node
 discovery.type: single-node
 {% endif %}
 
-
-# =========================
-# Node roles
-# =========================
-
+# ===========================
+# Node Roles
+# ===========================
 node.roles:
 {% for role in opensearch_node_roles %}
   - {{ role }}
 {% endfor %}
 
-
-# =========================
-# Memory / bootstrap
-# =========================
-
+# ===========================
+# Memory / Bootstrap
+# ===========================
 bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | default(false) }}
 
-
-# =========================
-# Performance / safety
-# =========================
-
+# ===========================
+# Performance
+# ===========================
 cluster.routing.allocation.disk.threshold_enabled: true
 cluster.info.update.interval: 30s
 
-
-# =========================
+# ===========================
 # Security (TLS / Auth)
-# =========================
-
+# ===========================
 {% if opensearch_use_tls | bool %}
 
 plugins.security.enabled: true
 
-# ---- Transport layer (node to node)
+# Transport layer (node-to-node)
 plugins.security.ssl.transport.pemcert_filepath: {{ opensearch_certs_dir }}/node.pem
 plugins.security.ssl.transport.pemkey_filepath: {{ opensearch_certs_dir }}/node-key.pem
 plugins.security.ssl.transport.pemtrustedcas_filepath: {{ opensearch_certs_dir }}/root-ca.pem
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
-# ---- HTTP layer (client to node)
+# HTTP layer (client-to-node)
 plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: {{ opensearch_certs_dir }}/node.pem
 plugins.security.ssl.http.pemkey_filepath: {{ opensearch_certs_dir }}/node-key.pem
 plugins.security.ssl.http.pemtrustedcas_filepath: {{ opensearch_certs_dir }}/root-ca.pem
 
-
-# ---- Admin DNs
+# Admin DNs
+{% if opensearch_admin_dn | length > 0 %}
 plugins.security.authcz.admin_dn:
 {% for dn in opensearch_admin_dn %}
   - {{ dn }}
 {% endfor %}
+{% endif %}
 
-
-# ---- Node DNs
+# Node DNs
+{% if opensearch_nodes_dn | length > 0 %}
 plugins.security.nodes_dn:
 {% for dn in opensearch_nodes_dn %}
   - {{ dn }}
 {% endfor %}
+{% endif %}
 
-
-# ---- Security behaviour
+# Security behaviour
 plugins.security.allow_default_init_securityindex: true
 plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.check_snapshot_restore_write_privileges: true
@@ -146,4 +138,38 @@ plugins.security.system_indices.indices:
 
 plugins.security.disabled: true
 
+{% endif %}
+
+# ===========================
+# SSO Configuration
+# ===========================
+{% if opensearch_enable_sso | bool and opensearch_use_tls | bool %}
+
+{% if opensearch_auth_type == 'openid' %}
+# OpenID Connect
+plugins.security.auth.type: "openid"
+plugins.security.openid.connect_url: "{{ opensearch_openid_connect_url }}"
+plugins.security.openid.client_id: "{{ opensearch_openid_client_id }}"
+plugins.security.openid.client_secret: "{{ opensearch_openid_client_secret }}"
+plugins.security.openid.scope: "{{ opensearch_openid_scope }}"
+{% if opensearch_openid_base_redirect_url %}
+plugins.security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_url }}"
+{% endif %}
+{% endif %}
+
+{% if opensearch_auth_type == 'saml' %}
+# SAML
+plugins.security.auth.type: "saml"
+plugins.security.saml.idp.metadata_url: "{{ opensearch_saml_idp_metadata_url }}"
+plugins.security.saml.sp.entity_id: "{{ opensearch_saml_entity_id }}"
+plugins.security.saml.exchange_key: "{{ opensearch_saml_exchange_key }}"
+{% endif %}
+
+{% endif %}
+
+# ===========================
+# Metrics / Monitoring
+# ===========================
+{% if opensearch_metrics_enabled | bool %}
+opensearch.experimental.feature.telemetry.enabled: true
 {% endif %}

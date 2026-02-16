@@ -1,0 +1,58 @@
+---
+# ===========================
+# Metrics & Monitoring
+# ===========================
+# Only runs when opensearch_metrics_enabled is true
+
+- name: Determine protocol for API calls
+  ansible.builtin.set_fact:
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+
+- name: Wait for OpenSearch to be ready for metrics config
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/"
+    method: GET
+    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
+    validate_certs: false
+    status_code: 200
+  register: _os_metrics_ready
+  until: _os_metrics_ready.status == 200
+  retries: 30
+  delay: 5
+
+# ===========================
+# Performance Analyzer
+# ===========================
+- name: Enable Performance Analyzer plugin
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_plugins/_performanceanalyzer/cluster/config"
+    method: POST
+    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
+    validate_certs: false
+    body_format: json
+    body:
+      enabled: true
+      shardsPerCollection: 0
+    status_code: [200, 201]
+  when: opensearch_performance_analyzer_enabled | bool
+  failed_when: false
+
+- name: Verify metrics endpoint is accessible
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/stats"
+    method: GET
+    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
+    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
+    force_basic_auth: "{{ opensearch_use_tls }}"
+    validate_certs: false
+    status_code: 200
+  register: _metrics_check
+  failed_when: false
+
+- name: Display metrics endpoint status
+  ansible.builtin.debug:
+    msg: "Metrics endpoint available: {{ _metrics_check.status | default('unreachable') }}"

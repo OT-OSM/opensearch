@@ -1,0 +1,8 @@
+---
+opensearch_java_package: openjdk-17-jdk-headless
+opensearch_prerequisites:
+  - curl
+  - gnupg
+  - lsb-release
+  - ca-certificates
+  - apt-transport-https

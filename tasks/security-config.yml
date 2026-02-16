@@ -1,83 +1,67 @@
 ---
-- name: Create Certificates Directory
+# ===========================
+# TLS Certificate Deployment
+# ===========================
+- name: Create certificates directory
   ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}"
     state: directory
     owner: opensearch
     group: opensearch
-    mode: '0700'
-  when: opensearch_use_tls
+    mode: "0700"
 
-- name: Copy Root CA Certificate
+- name: Copy TLS certificates
   ansible.builtin.copy:
-    src: "{{ opensearch_root_ca_path }}"
-    dest: "{{ opensearch_certs_dir }}/root-ca.pem"
+    src: "{{ item.src }}"
+    dest: "{{ opensearch_certs_dir }}/{{ item.filename }}"
     owner: opensearch
     group: opensearch
-    mode: '0600'
-  when: opensearch_use_tls and opensearch_root_ca_path is defined
+    mode: "0600"
+  loop:
+    - src: "{{ opensearch_root_ca_path | default('') }}"
+      filename: root-ca.pem
+      enabled: "{{ opensearch_root_ca_path is defined }}"
+    - src: "{{ opensearch_admin_cert_path | default('') }}"
+      filename: admin.pem
+      enabled: "{{ opensearch_admin_cert_path is defined }}"
+    - src: "{{ opensearch_admin_key_path | default('') }}"
+      filename: admin-key.pem
+      enabled: "{{ opensearch_admin_key_path is defined }}"
+    - src: "{{ opensearch_node_cert_path | default('') }}"
+      filename: node.pem
+      enabled: "{{ opensearch_node_cert_path is defined }}"
+    - src: "{{ opensearch_node_key_path | default('') }}"
+      filename: node-key.pem
+      enabled: "{{ opensearch_node_key_path is defined }}"
+  when: item.enabled | bool
+  loop_control:
+    label: "{{ item.filename }}"
   notify: Restart OpenSearch
 
-- name: Copy Admin Certificate
-  ansible.builtin.copy:
-    src: "{{ opensearch_admin_cert_path }}"
-    dest: "{{ opensearch_certs_dir }}/admin.pem"
-    owner: opensearch
-    group: opensearch
-    mode: '0600'
-  when: opensearch_use_tls and opensearch_admin_cert_path is defined
-
-- name: Copy Admin Key
-  ansible.builtin.copy:
-    src: "{{ opensearch_admin_key_path }}"
-    dest: "{{ opensearch_certs_dir }}/admin-key.pem"
-    owner: opensearch
-    group: opensearch
-    mode: '0600'
-  when: opensearch_use_tls and opensearch_admin_key_path is defined
-
-- name: Copy Node Certificate
-  ansible.builtin.copy:
-    src: "{{ opensearch_node_cert_path }}"
-    dest: "{{ opensearch_certs_dir }}/node.pem"
-    owner: opensearch
-    group: opensearch
-    mode: '0600'
-  when: opensearch_use_tls and opensearch_node_cert_path is defined
-  notify: Restart OpenSearch
-
-- name: Copy Node Key
-  ansible.builtin.copy:
-    src: "{{ opensearch_node_key_path }}"
-    dest: "{{ opensearch_certs_dir }}/node-key.pem"
-    owner: opensearch
-    group: opensearch
-    mode: '0600'
-  when: opensearch_use_tls and opensearch_node_key_path is defined
-  notify: Restart OpenSearch
-
-- name: Create Internal Users
+# ===========================
+# Internal Users
+# ===========================
+- name: Deploy internal_users.yml
   ansible.builtin.template:
     src: internal_users.yml.j2
     dest: "{{ opensearch_security_config_dir }}/internal_users.yml"
     owner: opensearch
     group: opensearch
-    mode: '0640'
-  when: opensearch_use_tls
+    mode: "0640"
 
-# Security Admin should only be run if we are bootstrapping security index
-# We need to wait for OS to be running first, which is handled in main.yml by flush_handlers
-- name: Apply Security Configuration (securityadmin.sh)
+# ===========================
+# Apply Security Config
+# ===========================
+- name: Apply security configuration (securityadmin.sh)
   ansible.builtin.command: >
-    /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -cacert {{ opensearch_certs_dir }}/root-ca.pem
     -cert {{ opensearch_certs_dir }}/admin.pem
     -key {{ opensearch_certs_dir }}/admin-key.pem
   environment:
-    JAVA_HOME: /usr/share/opensearch/jdk
-  ignore_errors: yes
+    JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result
   changed_when: "'ERR:' not in security_admin_result.stdout"
-  when: opensearch_use_tls
+  failed_when: false

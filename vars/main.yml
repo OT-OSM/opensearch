@@ -1,17 +1,7 @@
 ---
-# vars file for opensearch
-opensearch_version: 2.11.1
-opensearch_vm_max_map_count: 262144
-opensearch_systemd_limit_nofile: 65536
-opensearch_jvm_heap_size: "512m"
-opensearch_cluster_name: "my-application"
-opensearch_http_port: 9200
+# Internal/derived variables — override with caution
 opensearch_admin_password: "Strong@321"
 opensearch_bootstrap_cluster: true
-# Note: inventory-specific vars like 'Cluster' or 'Standalone' should be handled via inventory or group_vars
-# but I'll keep them here if they are intended to be role-level overrides.
 opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
 opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
 opensearch_domain_name: "example.com"
-
-

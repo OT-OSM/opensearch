@@ -1,26 +1,32 @@
 galaxy_info:
   author: Sneha Joshi
-  description: Ansible role to install and configure OpenSearch Cluster
+  description: Enterprise Ansible role for OpenSearch — HA/standalone, TLS, SSO, access control, metrics
   company: "Opstree"
   license: "Apache-2.0"
-  min_ansible_version: "2.9"
+  min_ansible_version: "2.14"
   platforms:
     - name: EL
       versions:
-        - all
+        - "8"
+        - "9"
     - name: Debian
       versions:
-        - all
+        - bullseye
+        - bookworm
     - name: Ubuntu
       versions:
-        - all
+        - jammy
+        - noble
     - name: Amazon
       versions:
-        - all
+        - "all"
   galaxy_tags:
     - opensearch
-    - elasticsearch
     - search
-    - database
+    - analytics
+    - monitoring
+    - tls
+    - sso
+    - ha
 
 dependencies: []

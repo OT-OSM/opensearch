@@ -3,23 +3,23 @@
   ansible.builtin.apt_repository:
     repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_major_version }}/apt stable main"
     state: present
-    filename: opensearch-dashboards-{{ opensearch_major_version }}
+    filename: "opensearch-dashboards-{{ opensearch_major_version }}"
   when: ansible_os_family == 'Debian'
 
 - name: Add OpenSearch Dashboards repository (RedHat)
   ansible.builtin.get_url:
     url: "https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/{{ opensearch_major_version }}/opensearch-dashboards-{{ opensearch_major_version }}.repo"
-    dest: /etc/yum.repos.d/opensearch-dashboards-{{ opensearch_major_version }}.repo
-    mode: '0644'
+    dest: "/etc/yum.repos.d/opensearch-dashboards-{{ opensearch_major_version }}.repo"
+    mode: "0644"
   when: ansible_os_family == 'RedHat'
 
 - name: Install OpenSearch Dashboards (Debian)
   ansible.builtin.apt:
     name: "opensearch-dashboards={{ opensearch_dashboards_version }}"
     state: present
-    allow_downgrade: yes
-    allow_change_held_packages: yes
-    dpkg_options: 'force-confdef,force-confold'
+    allow_downgrade: true
+    allow_change_held_packages: true
+    dpkg_options: "force-confdef,force-confold"
   environment:
     DEBIAN_FRONTEND: noninteractive
   register: dashboards_install_deb
@@ -32,8 +32,6 @@
   ansible.builtin.package:
     name: "opensearch-dashboards-{{ opensearch_dashboards_version }}"
     state: present
-  environment:
-    DEBIAN_FRONTEND: noninteractive
   register: dashboards_install_rhel
   until: dashboards_install_rhel is succeeded
   retries: 5
