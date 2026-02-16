@@ -27,7 +27,6 @@
   until: cluster_health.status == 200
   retries: 120
   delay: 5
-  failed_when: false
 
 - name: Display cluster health status
   ansible.builtin.debug:

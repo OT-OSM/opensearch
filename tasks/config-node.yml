@@ -126,3 +126,5 @@
     name: opensearch
     state: started
     daemon_reload: true
+  async: 300
+  poll: 5

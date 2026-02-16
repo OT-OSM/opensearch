@@ -29,7 +29,7 @@
 - name: Configure OpenSearch DNS in /etc/hosts
   ansible.builtin.blockinfile:
     block: |
-      {% set host_ip = hostvars[item]['ansible_host'] | default(hostvars[item]['ansible_default_ipv4']['address'] | default('')) %}
+      {% set host_ip = hostvars[item]['private_ip'] | default(hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host'] | default(''))) %}
       {% if host_ip %}
       {{ host_ip }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
       {% endif %}
@@ -37,9 +37,27 @@
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
   become: true
   loop: "{{ groups['opensearch'] | default([]) }}"
+- name: Verify network connectivity between nodes (Port 9300)
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[item]['private_ip'] | default(hostvars[item]['ansible_host']) }}"
+    port: 9300
+    timeout: 5
+    state: started
+  loop: "{{ groups['opensearch'] | default([]) }}"
   when:
-    - groups['opensearch'] is defined
-    - hostvars[item] is defined
+    - groups['opensearch'] | length > 1
+    - item != inventory_hostname
+  ignore_errors: true
+  register: connectivity_check
+  tags: [diagnostic]
+
+- name: Warn about potential network isolation
+  ansible.builtin.debug:
+    msg: "WARNING: Node {{ inventory_hostname }} cannot reach {{ item.item }} on port 9300. Cluster formation might fail."
+  loop: "{{ connectivity_check.results | default([]) }}"
+  when:
+    - item.failed | default(false)
+  tags: [diagnostic]
 
 - name: Check if /etc/hostname is writable
   ansible.builtin.stat:
