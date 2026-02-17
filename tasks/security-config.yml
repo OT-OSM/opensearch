@@ -147,6 +147,16 @@
     - { src: "{{ opensearch_mgmt_key_path }}", dest: "admin-key.pem" }
   ignore_errors: true
 
+# ===========================
+# 5. Assemble Combined Truststore (Admin mTLS Fix)
+# ===========================
+- name: Assemble combined truststore (root-ca-all.pem)
+  ansible.builtin.shell: |
+    cat {{ opensearch_certs_dir }}/root-ca.pem > {{ opensearch_certs_dir }}/root-ca-all.pem
+    echo "" >> {{ opensearch_certs_dir }}/root-ca-all.pem
+    cat {{ opensearch_certs_dir }}/transport-root-ca.pem >> {{ opensearch_certs_dir }}/root-ca-all.pem
+  when: opensearch_use_tls | bool
+
 - name: Fix certificate permissions and ownership
   ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}"
@@ -235,7 +245,7 @@
     -icl -nhnv
     -h 127.0.0.1
     -p 9200
-    -cacert {{ _os_abs_root_ca }}
+    -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
     -cert {{ _os_abs_mgmt_cert }}
     -key {{ _os_abs_mgmt_key }}
   environment:
