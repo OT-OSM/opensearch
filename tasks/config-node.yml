@@ -17,6 +17,15 @@
     create_home: false
 
 # ===========================
+# Password Hashing
+# ===========================
+- name: Generate admin password hash if not provided
+  ansible.builtin.set_fact:
+    opensearch_admin_password_hash: "{{ opensearch_admin_password | password_hash('blowfish') }}"
+  when: opensearch_admin_password_hash | default('') == ""
+  no_log: true
+
+# ===========================
 # Configuration Directory
 # ===========================
 - name: Create OpenSearch configuration directory

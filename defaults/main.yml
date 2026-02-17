@@ -78,12 +78,21 @@ opensearch_number_of_replicas: 1
 # Security / TLS
 # ===========================
 opensearch_use_tls: false
-# Source paths for certificates (on Ansible controller)
-# opensearch_root_ca_path: "/path/to/root-ca.pem"
-# opensearch_admin_cert_path: "/path/to/admin.pem"
-# opensearch_admin_key_path: "/path/to/admin-key.pem"
-# opensearch_node_cert_path: "/path/to/node.pem"
-# opensearch_node_key_path: "/path/to/node-key.pem"
+# Source paths for certificates (on Ansible controller or manually placed)
+# HTTP layer (External Client-to-Node) - User provided
+opensearch_root_ca_path: "/etc/opensearch/certs/chain.pem"
+opensearch_node_cert_path: "/etc/opensearch/certs/fullchain.pem"
+opensearch_node_key_path: "/etc/opensearch/certs/privkey.pem"
+
+# Transport layer (Internal Node-to-Node) - Auto-generated
+opensearch_transport_root_ca_path: "certs/transport-root-ca.pem"
+opensearch_transport_node_cert_path: "certs/transport-node.pem"
+opensearch_transport_node_key_path: "certs/transport-node-key.pem"
+
+# Admin certificates (for securityadmin.sh) - Auto-generated
+opensearch_admin_cert_path: "certs/admin.pem"
+opensearch_admin_key_path: "certs/admin-key.pem"
+
 opensearch_admin_dn: []
 opensearch_nodes_dn: []
 

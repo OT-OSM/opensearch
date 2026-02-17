@@ -1,10 +1,10 @@
 ---
 # ===========================
-# TLS Certificate Deployment
+# TLS Certificate Configuration
 # ===========================
-# Note: Certificates are expected to be manually placed on the server
-# or managed by an external process/role, matching the Keycloak pattern.
-# We only ensure the directory exists.
+# This task file handles TLS certificate setup for OpenSearch.
+# It generates self-signed RSA certificates for the transport layer (node-to-node)
+# to ensure compatibility, while HTTP access uses user-provided certificates.
 
 - name: Create certificates directory
   ansible.builtin.file:
@@ -15,34 +15,79 @@
     mode: "0700"
 
 # ===========================
-# Ensure OpenSearch is stopped before first TLS start
+# Generate Transport Certificates (RSA)
 # ===========================
-- name: Stop OpenSearch before TLS configuration
+- name: Check if transport CA exists
+  ansible.builtin.stat:
+    path: "{{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}"
+  register: transport_ca_stat
+
+- name: Generate transport Root CA
+  ansible.builtin.shell: |
+    openssl genrsa -out {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem 2048
+    openssl req -x509 -new -nodes -key {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -sha256 -days 3650 -subj "/C=IN/O=OpsTree/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
+  when: not transport_ca_stat.stat.exists
+
+- name: Check if transport node certificate exists
+  ansible.builtin.stat:
+    path: "{{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }}"
+  register: transport_node_stat
+
+- name: Generate transport node certificate
+  ansible.builtin.shell: |
+    openssl genrsa -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} 2048
+    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/C=IN/O=OpsTree/CN={{ opensearch_node_name }}" -out {{ opensearch_config_dir }}/certs/transport-node.csr
+    openssl x509 -req -in {{ opensearch_config_dir }}/certs/transport-node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
+    rm {{ opensearch_config_dir }}/certs/transport-node.csr
+  when: not transport_node_stat.stat.exists
+
+- name: Check if admin certificate exists
+  ansible.builtin.stat:
+    path: "{{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }}"
+  register: admin_cert_stat
+
+- name: Generate admin certificate (for securityadmin.sh)
+  ansible.builtin.shell: |
+    openssl genrsa -out {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }} 2048
+    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }} -subj "/C=IN/O=OpsTree/CN=opensearch-admin" -out {{ opensearch_config_dir }}/certs/admin.csr
+    openssl x509 -req -in {{ opensearch_config_dir }}/certs/admin.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }} -days 3650 -sha256
+    rm {{ opensearch_config_dir }}/certs/admin.csr
+  when: not admin_cert_stat.stat.exists
+
+- name: Fix certificate permissions and ownership
+  ansible.builtin.file:
+    path: "{{ opensearch_certs_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0700"
+    recurse: true
+
+# ===========================
+# Service Lifecycle for Initial TLS configuration
+# ===========================
+- name: Ensure OpenSearch is stopped before TLS start
   ansible.builtin.systemd:
     name: opensearch
     state: stopped
   failed_when: false
 
-# ===========================
-# Start OpenSearch with TLS config
-# ===========================
-- name: Start OpenSearch with TLS configuration
+- name: Start OpenSearch with TLS
   ansible.builtin.systemd:
     name: opensearch
     state: started
-    daemon_reload: true
   async: 300
   poll: 5
 
-- name: Wait for OpenSearch HTTPS port to be available
+- name: Wait for OpenSearch port
   ansible.builtin.wait_for:
     port: "{{ opensearch_http_port }}"
     host: 127.0.0.1
     delay: 10
-    timeout: 120
+    timeout: 150
 
 # ===========================
-# Internal Users
+# Apply Security Config
 # ===========================
 - name: Deploy internal_users.yml
   ansible.builtin.template:
@@ -52,35 +97,27 @@
     group: opensearch
     mode: "0640"
 
-# ===========================
-# Apply Security Config
-# ===========================
 - name: Apply security configuration (securityadmin.sh)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
-    -cacert {{ opensearch_root_ca_path }}
-    -cert {{ opensearch_admin_cert_path }}
-    -key {{ opensearch_admin_key_path }}
+    -cacert {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
+    -cert {{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }}
+    -key {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }}
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result
   changed_when: "'ERR:' not in security_admin_result.stdout"
-  failed_when: false
 
-# ===========================
-# Restart after security config is applied
-# ===========================
-- name: Restart OpenSearch to apply security configuration
+- name: Restart OpenSearch to apply configuration
   ansible.builtin.systemd:
     name: opensearch
     state: restarted
-    daemon_reload: true
 
-- name: Wait for OpenSearch to come back after restart
+- name: Final wait for OpenSearch service
   ansible.builtin.wait_for:
     port: "{{ opensearch_http_port }}"
     host: 127.0.0.1
     delay: 10
-    timeout: 120
+    timeout: 150
