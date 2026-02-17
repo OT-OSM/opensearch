@@ -28,9 +28,28 @@
 # ===========================
 # Configuration Directory
 # ===========================
+# ===========================
+# Configuration Directory
+# ===========================
 - name: Create OpenSearch configuration directory
   ansible.builtin.file:
     path: "{{ opensearch_config_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+- name: Create OpenSearch data directory
+  ansible.builtin.file:
+    path: "{{ opensearch_data_path }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+- name: Create OpenSearch logs directory
+  ansible.builtin.file:
+    path: "{{ opensearch_logs_path }}"
     state: directory
     owner: opensearch
     group: opensearch
