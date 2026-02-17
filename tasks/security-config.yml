@@ -158,7 +158,7 @@
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
-    -icl -nhnv -v
+    -icl -nhnv
     -h 127.0.0.1
     -cacert {{ _os_abs_root_ca }}
     -cert {{ _os_abs_mgmt_cert }}
