@@ -142,11 +142,77 @@
     - { src: "{{ opensearch_root_ca_path }}", dest: "root-ca.pem" }
     - { src: "{{ opensearch_node_cert_path }}", dest: "node.pem" }
     - { src: "{{ opensearch_node_key_path }}", dest: "node-key.pem" }
-    # Admin
-    - { src: "{{ opensearch_admin_cert_path }}", dest: "admin.pem" }
-    - { src: "{{ opensearch_admin_key_path }}", dest: "admin-key.pem" }
   ignore_errors: true
 
+# ===========================
+# 3. Dedicated Admin Certificate Generation (Self-Signed)
+# ===========================
+# We generate a dedicated CA and Client Cert for securityadmin.sh usage only.
+# This avoids issues with user-provided certs lacking 'clientAuth' EKU.
+
+- name: Create directory for generated admin certificates
+  ansible.builtin.file:
+    path: "{{ opensearch_certs_dir }}/admin-gen"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0700"
+
+- name: Generate Admin CA Private Key
+  ansible.builtin.command: >
+    openssl genrsa -out {{ opensearch_certs_dir }}/admin-gen/admin-ca.key 2048
+  args:
+    creates: "{{ opensearch_certs_dir }}/admin-gen/admin-ca.key"
+
+- name: Generate Admin CA Certificate
+  ansible.builtin.command: >
+    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/admin-gen/admin-ca.key
+    -sha256 -days 3650 -out {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem
+    -subj "/CN=OpenSearch-Admin-CA"
+  args:
+    creates: "{{ opensearch_certs_dir }}/admin-gen/admin-ca.pem"
+
+- name: Generate Admin Client Private Key
+  ansible.builtin.command: >
+    openssl genrsa -out {{ opensearch_certs_dir }}/admin-gen/admin.key 2048
+  args:
+    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.key"
+
+- name: Generate Admin Client CSR
+  ansible.builtin.command: >
+    openssl req -new -key {{ opensearch_certs_dir }}/admin-gen/admin.key
+    -out {{ opensearch_certs_dir }}/admin-gen/admin.csr
+    -subj "/CN=opensearch-admin"
+  args:
+    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.csr"
+
+- name: Create OpenSSL config for clientAuth extension
+  ansible.builtin.copy:
+    dest: "{{ opensearch_certs_dir }}/admin-gen/client-ext.cnf"
+    content: |
+      extendedKeyUsage = clientAuth
+
+- name: Sign Admin Client Certificate with Admin CA
+  ansible.builtin.command: >
+    openssl x509 -req -in {{ opensearch_certs_dir }}/admin-gen/admin.csr
+    -CA {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem
+    -CAkey {{ opensearch_certs_dir }}/admin-gen/admin-ca.key
+    -CAcreateserial -out {{ opensearch_certs_dir }}/admin-gen/admin.pem
+    -days 3650 -sha256 -extfile {{ opensearch_certs_dir }}/admin-gen/client-ext.cnf
+  args:
+    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.pem"
+
+- name: Set permissions for generated admin keys
+  ansible.builtin.file:
+    path: "{{ opensearch_certs_dir }}/admin-gen"
+    recurse: true
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+
+# ===========================
+# 5. Assemble Combined Truststore (Admin mTLS Fix)
+# ===========================
 # ===========================
 # 5. Assemble Combined Truststore (Admin mTLS Fix)
 # ===========================
@@ -155,19 +221,21 @@
     cat {{ opensearch_certs_dir }}/root-ca.pem > {{ opensearch_certs_dir }}/root-ca-all.pem
     echo "" >> {{ opensearch_certs_dir }}/root-ca-all.pem
     cat {{ opensearch_certs_dir }}/transport-root-ca.pem >> {{ opensearch_certs_dir }}/root-ca-all.pem
+    echo "" >> {{ opensearch_certs_dir }}/root-ca-all.pem
+    cat {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem >> {{ opensearch_certs_dir }}/root-ca-all.pem
   when: opensearch_use_tls | bool
+  changed_when: true
 
 - name: Fix certificate permissions and ownership
   ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}"
-    state: directory
     owner: opensearch
     group: opensearch
     mode: "0750"
     recurse: true
 
 # ===========================
-# Service Lifecycle for Initial TLS configuration
+# 6. Service Lifecycle for Initial TLS configuration
 # ===========================
 - name: Ensure OpenSearch is stopped before TLS start
   ansible.builtin.systemd:
@@ -188,6 +256,7 @@
   ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
   when: _os_start_tls.failed | default(false)
   register: _os_journal_logs
+  changed_when: false
 
 - name: Display OpenSearch journal logs on failure
   ansible.builtin.debug:
@@ -201,10 +270,11 @@
 
 - name: Wait for OpenSearch transport port (9300)
   ansible.builtin.wait_for:
-    port: "{{ opensearch_transport_port }}"
     host: 127.0.0.1
+    port: "{{ opensearch_transport_port }}"
     delay: 10
     timeout: 300
+    state: started
 
 - name: Robust initialization wait (Sleep 30s)
   ansible.builtin.pause:
@@ -212,16 +282,8 @@
   when: opensearch_use_tls | bool
 
 # ===========================
-# Apply Security Config
+# 7. Apply Security Config
 # ===========================
-- name: Audit configuration for invalid settings
-  ansible.builtin.shell: |
-    grep "plugins.security.enabled" {{ opensearch_config_dir }}/opensearch.yml || true
-  register: _os_config_audit
-
-- name: Display configuration audit results
-  ansible.builtin.debug:
-    var: _os_config_audit.stdout_lines
 
 - name: Deploy internal_users.yml
   ansible.builtin.template:
@@ -231,23 +293,16 @@
     group: opensearch
     mode: "0640"
 
-- name: Stop OpenSearch Dashboards to prevent connection interference
-  ansible.builtin.systemd:
-    name: opensearch-dashboards
-    state: stopped
-  ignore_errors: true
-  failed_when: false
-
-- name: Apply security configuration (securityadmin.sh via HTTPS/9200)
+- name: Apply security configuration (securityadmin.sh)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -h 127.0.0.1
-    -p 9200
+    -p 9300
     -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
-    -cert {{ _os_abs_mgmt_cert }}
-    -key {{ _os_abs_mgmt_key }}
+    -cert {{ opensearch_certs_dir }}/admin-gen/admin.pem
+    -key {{ opensearch_certs_dir }}/admin-gen/admin.key
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result
@@ -258,6 +313,7 @@
   when: security_admin_result.failed | default(false)
   register: _os_security_logs
   ignore_errors: true
+  changed_when: false
 
 - name: Display internal server logs on failure
   ansible.builtin.debug:
