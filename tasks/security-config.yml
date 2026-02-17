@@ -28,6 +28,7 @@
     - certs/transport-node-key.pem
     - certs/admin.pem
     - certs/admin-key.pem
+    - certs/combined-ca.pem
   when: opensearch_use_tls | bool
 
 # ===========================
@@ -65,6 +66,18 @@
     openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
     # Cleanup
     rm {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem {{ opensearch_certs_dir }}/mgmt.csr
+  when: opensearch_use_tls | bool
+
+# ===========================
+# Merge CAs for HTTP Layer (Combined Truststore)
+# ===========================
+# To allow securityadmin.sh to use the auto-generated admin cert while OpenSearch
+# REST API uses Let's Encrypt for clients, we combine both CAs.
+- name: Create combined HTTP truststore
+  ansible.builtin.shell: |
+    cat {{ opensearch_config_dir }}/{{ opensearch_root_ca_path }} > {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
+    echo "" >> {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
+    cat {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} >> {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
   when: opensearch_use_tls | bool
 
 - name: Fix certificate permissions and ownership
@@ -132,7 +145,7 @@
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
-    -cacert {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
+    -cacert {{ opensearch_config_dir }}/{{ opensearch_root_ca_path }}
     -cert {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }}
     -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }}
   environment:

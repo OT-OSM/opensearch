@@ -82,6 +82,7 @@ opensearch_use_tls: false
 opensearch_root_ca_path: "certs/chain.pem"
 opensearch_node_cert_path: "certs/fullchain.pem"
 opensearch_node_key_path: "certs/privkey.pem"
+opensearch_http_combined_ca_path: "certs/combined-ca.pem"
 
 # Transport layer (Internal Node-to-Node) - Auto-generated
 opensearch_transport_root_ca_path: "certs/transport-root-ca.pem"

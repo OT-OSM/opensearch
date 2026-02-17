@@ -92,7 +92,7 @@ plugins.security.ssl.transport.enforce_hostname_verification: false
 plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
 plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
-plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
+plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_http_combined_ca_path }}"
 
 # Admin DNs
 plugins.security.authcz.admin_dn:
