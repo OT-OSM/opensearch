@@ -2,7 +2,7 @@
 # ===========================
 # OpenSearch Version Control
 # ===========================
-opensearch_version: "2.11.1"
+opensearch_version: "2.19.4"
 opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"
 opensearch_dashboards_version: "{{ opensearch_version }}"
 
@@ -97,8 +97,8 @@ opensearch_transport_node_key_path: "certs/privkey.pem"
 
 # Admin certificates (for securityadmin.sh)
 # Must be a client certificate trusted by the Root CA
-opensearch_mgmt_cert_path: "certs/admin.pem"
-opensearch_mgmt_key_path: "certs/admin-key.pem"
+opensearch_admin_cert_path: "certs/admin.pem"
+opensearch_admin_key_path: "certs/admin-key.pem"
 
 opensearch_admin_dn: []
 opensearch_nodes_dn: []

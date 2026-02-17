@@ -18,8 +18,8 @@
 - name: Set absolute certificate paths for securityadmin
   ansible.builtin.set_fact:
     _os_abs_root_ca: "{{ (opensearch_root_ca_path is abs) | ternary(opensearch_root_ca_path, opensearch_config_dir ~ '/' ~ opensearch_root_ca_path) }}"
-    _os_abs_mgmt_cert: "{{ (opensearch_mgmt_cert_path is abs) | ternary(opensearch_mgmt_cert_path, opensearch_config_dir ~ '/' ~ opensearch_mgmt_cert_path) }}"
-    _os_abs_mgmt_key: "{{ (opensearch_mgmt_key_path is abs) | ternary(opensearch_mgmt_key_path, opensearch_config_dir ~ '/' ~ opensearch_mgmt_key_path) }}"
+    _os_abs_mgmt_cert: "{{ (opensearch_admin_cert_path is abs) | ternary(opensearch_admin_cert_path, opensearch_config_dir ~ '/' ~ opensearch_admin_cert_path) }}"
+    _os_abs_mgmt_key: "{{ (opensearch_admin_key_path is abs) | ternary(opensearch_admin_key_path, opensearch_config_dir ~ '/' ~ opensearch_admin_key_path) }}"
     _os_abs_transport_ca: "{{ (opensearch_transport_root_ca_path is abs) | ternary(opensearch_transport_root_ca_path, opensearch_config_dir ~ '/' ~ opensearch_transport_root_ca_path) }}"
     _os_abs_transport_cert: "{{ (opensearch_transport_node_cert_path is abs) | ternary(opensearch_transport_node_cert_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_cert_path) }}"
     _os_abs_transport_key: "{{ (opensearch_transport_node_key_path is abs) | ternary(opensearch_transport_node_key_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_key_path) }}"
@@ -143,8 +143,8 @@
     - { src: "{{ opensearch_node_cert_path }}", dest: "node.pem" }
     - { src: "{{ opensearch_node_key_path }}", dest: "node-key.pem" }
     # Admin
-    - { src: "{{ opensearch_mgmt_cert_path }}", dest: "admin.pem" }
-    - { src: "{{ opensearch_mgmt_key_path }}", dest: "admin-key.pem" }
+    - { src: "{{ opensearch_admin_cert_path }}", dest: "admin.pem" }
+    - { src: "{{ opensearch_admin_key_path }}", dest: "admin-key.pem" }
   ignore_errors: true
 
 # ===========================
