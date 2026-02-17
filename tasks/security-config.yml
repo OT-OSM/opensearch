@@ -293,6 +293,37 @@
     group: opensearch
     mode: "0640"
 
+# ===========================
+# DEBUG: Inspect Certs & Config on Target
+# ===========================
+- name: DEBUG - List certs directory
+  ansible.builtin.command: ls -la {{ opensearch_certs_dir }}
+  register: _dbg_ls
+  changed_when: false
+
+- name: DEBUG - Show Admin Cert Subject/Issuer
+  ansible.builtin.command: openssl x509 -in {{ opensearch_certs_dir }}/admin-gen/admin.pem -noout -subject -issuer -enddate
+  register: _dbg_admin_cert
+  changed_when: false
+
+- name: DEBUG - Show Root CA Bundle Subjects
+  ansible.builtin.shell: grep "Subject:" {{ opensearch_certs_dir }}/root-ca-all.pem || true
+  register: _dbg_root_ca
+  changed_when: false
+
+- name: DEBUG - Show configured Admin DN in opensearch.yml
+  ansible.builtin.command: grep "plugins.security.authcz.admin_dn" -A 5 {{ opensearch_config_dir }}/opensearch.yml
+  register: _dbg_config
+  changed_when: false
+
+- name: DEBUG - Display Inspection Results
+  ansible.builtin.debug:
+    msg:
+      - "LS: {{ _dbg_ls.stdout_lines }}"
+      - "Admin Cert: {{ _dbg_admin_cert.stdout_lines }}"
+      - "Root CA Subjects: {{ _dbg_root_ca.stdout_lines }}"
+      - "Config-DN: {{ _dbg_config.stdout_lines }}"
+
 - name: Apply security configuration (securityadmin.sh)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
