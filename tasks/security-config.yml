@@ -136,7 +136,12 @@
     port: "{{ opensearch_http_port }}"
     host: 127.0.0.1
     delay: 10
-    timeout: 150
+    timeout: 300
+
+- name: Robust initialization wait (Sleep 30s)
+  ansible.builtin.pause:
+    seconds: 30
+  when: opensearch_use_tls | bool
 
 # ===========================
 # Apply Security Config
@@ -153,14 +158,30 @@
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
-    -icl -nhnv
+    -icl -nhnv -v
+    -h 127.0.0.1
     -cacert {{ _os_abs_root_ca }}
     -cert {{ _os_abs_mgmt_cert }}
     -key {{ _os_abs_mgmt_key }}
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result
-  changed_when: "'ERR:' not in security_admin_result.stdout"
+  ignore_errors: true
+
+- name: Capture OpenSearch journal logs on securityadmin failure
+  ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
+  when: security_admin_result.failed | default(false)
+  register: _os_security_logs
+
+- name: Display OpenSearch journal logs on securityadmin failure
+  ansible.builtin.debug:
+    var: _os_security_logs.stdout_lines
+  when: security_admin_result.failed | default(false)
+
+- name: Fail if securityadmin failed
+  ansible.builtin.fail:
+    msg: "SecurityAdmin failed. Check logs above. Output: {{ security_admin_result.stdout }}"
+  when: security_admin_result.failed | default(false)
 
 - name: Restart OpenSearch to apply configuration
   ansible.builtin.systemd:
