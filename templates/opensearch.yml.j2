@@ -80,7 +80,7 @@ cluster.info.update.interval: 30s
 # ===========================
 {% if opensearch_use_tls | bool %}
 
-plugins.security.enabled: true
+plugins.security.disabled: false
 
 # Transport layer (node-to-node)
 plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
