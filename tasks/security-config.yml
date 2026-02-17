@@ -23,71 +23,129 @@
     _os_abs_transport_ca: "{{ (opensearch_transport_root_ca_path is abs) | ternary(opensearch_transport_root_ca_path, opensearch_config_dir ~ '/' ~ opensearch_transport_root_ca_path) }}"
     _os_abs_transport_cert: "{{ (opensearch_transport_node_cert_path is abs) | ternary(opensearch_transport_node_cert_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_cert_path) }}"
     _os_abs_transport_key: "{{ (opensearch_transport_node_key_path is abs) | ternary(opensearch_transport_node_key_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_key_path) }}"
-    _os_abs_combined_ca: "{{ (opensearch_http_combined_ca_path is abs) | ternary(opensearch_http_combined_ca_path, opensearch_config_dir ~ '/' ~ opensearch_http_combined_ca_path) }}"
 
 # ===========================
-# Cleanup old internal certs (Forced regeneration)
+# 1. Transport Layer Certificates (User Provided)
 # ===========================
-- name: Remove old internal certificates to force regeneration
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
+- name: Verify Transport Root CA exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_transport_ca }}"
+  register: _transport_ca_stat
+
+- name: Fail if Transport Root CA is missing
+  ansible.builtin.fail:
+    msg: "Transport Root CA not found at {{ _transport_ca_stat.stat.path }}. You must provide valid certificates when opensearch_use_tls is true."
+  when: not _transport_ca_stat.stat.exists
+
+- name: Verify Transport Node Cert exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_transport_cert }}"
+  register: _transport_cert_stat
+
+- name: Fail if Transport Node Cert is missing
+  ansible.builtin.fail:
+    msg: "Transport Node Cert not found at {{ _transport_cert_stat.stat.path }}."
+  when: not _transport_cert_stat.stat.exists
+
+- name: Verify Transport Node Key exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_transport_key }}"
+  register: _transport_key_stat
+
+- name: Fail if Transport Node Key is missing
+  ansible.builtin.fail:
+    msg: "Transport Node Key not found at {{ _transport_key_stat.stat.path }}."
+  when: not _transport_key_stat.stat.exists
+
+# ===========================
+# 2. HTTP Layer Certificates (User Provided)
+# ===========================
+- name: Verify HTTP Root CA exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_root_ca }}"
+  register: _http_ca_stat
+
+- name: Fail if HTTP Root CA is missing
+  ansible.builtin.fail:
+    msg: "HTTP Root CA not found at {{ _http_ca_stat.stat.path }}."
+  when: not _http_ca_stat.stat.exists
+
+- name: Verify HTTP Node Cert exists
+  ansible.builtin.stat:
+    path: "{{ opensearch_node_cert_path if opensearch_node_cert_path.startswith('/') else opensearch_config_dir + '/' + opensearch_node_cert_path }}"
+  register: _http_cert_stat
+
+- name: Fail if HTTP Node Cert is missing
+  ansible.builtin.fail:
+    msg: "HTTP Node Cert not found at {{ _http_cert_stat.stat.path }}."
+  when: not _http_cert_stat.stat.exists
+
+- name: Verify HTTP Node Key exists
+  ansible.builtin.stat:
+    path: "{{ opensearch_node_key_path if opensearch_node_key_path.startswith('/') else opensearch_config_dir + '/' + opensearch_node_key_path }}"
+  register: _http_key_stat
+
+- name: Fail if HTTP Node Key is missing
+  ansible.builtin.fail:
+    msg: "HTTP Node Key not found at {{ _http_key_stat.stat.path }}."
+  when: not _http_key_stat.stat.exists
+
+# ===========================
+# 3. Admin Certificates (User Provided)
+# ===========================
+- name: Verify Admin Cert exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_mgmt_cert }}"
+  register: _admin_cert_stat
+
+- name: Fail if Admin Cert is missing
+  ansible.builtin.fail:
+    msg: "Admin Cert not found at {{ _admin_cert_stat.stat.path }}. Required for securityadmin.sh."
+  when: not _admin_cert_stat.stat.exists
+
+- name: Verify Admin Key exists
+  ansible.builtin.stat:
+    path: "{{ _os_abs_mgmt_key }}"
+  register: _admin_key_stat
+
+- name: Fail if Admin Key is missing
+  ansible.builtin.fail:
+    msg: "Admin Key not found at {{ _admin_key_stat.stat.path }}."
+  when: not _admin_key_stat.stat.exists
+
+# ===========================
+# 4. Copy Certificates to Config Dir
+# ===========================
+- name: Ensure certificates are in the correct location with correct permissions
+  ansible.builtin.copy:
+    src: "{{ item.src if item.src.startswith('/') else opensearch_config_dir + '/' + item.src }}"
+    dest: "{{ opensearch_certs_dir }}/{{ item.dest }}"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+    remote_src: true
   loop:
-    - "{{ _os_abs_transport_ca }}"
-    - "{{ opensearch_certs_dir }}/transport-ca-pkcs1.pem"
-    - "{{ _os_abs_transport_cert }}"
-    - "{{ _os_abs_transport_key }}"
-    - "{{ _os_abs_mgmt_cert }}"
-    - "{{ _os_abs_mgmt_key }}"
-    - "{{ _os_abs_combined_ca }}"
-  when: opensearch_use_tls | bool
-
-# ===========================
-# Generate Transport Certificates (RSA PKCS#8)
-# ===========================
-- name: Generate transport Root CA
-  ansible.builtin.shell: |
-    openssl genrsa -out {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem 2048
-    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ _os_abs_transport_ca }}
-  when: opensearch_use_tls | bool
-
-- name: Generate transport node certificate
-  ansible.builtin.shell: |
-    # Generate PKCS#1 key
-    openssl genrsa -out {{ opensearch_certs_dir }}/node-temp-pkcs1.pem 2048
-    # Convert to PKCS#8 for OpenSearch
-    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/node-temp-pkcs1.pem -out {{ _os_abs_transport_key }}
-    # Generate CSR
-    openssl req -new -key {{ _os_abs_transport_key }} -subj "/CN=opensearch-node" -out {{ opensearch_certs_dir }}/node.csr
-    # Sign certificate
-    openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ _os_abs_transport_ca }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ _os_abs_transport_cert }} -days 3650 -sha256
-    # Cleanup
-    rm {{ opensearch_certs_dir }}/node-temp-pkcs1.pem {{ opensearch_certs_dir }}/node.csr
-  when: opensearch_use_tls | bool
-
-- name: Generate management certificate (for securityadmin.sh)
-  ansible.builtin.shell: |
-    # Generate PKCS#1 key
-    openssl genrsa -out {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem 2048
-    # Convert to PKCS#8
-    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem -out {{ _os_abs_mgmt_key }}
-    # Generate CSR
-    openssl req -new -key {{ _os_abs_mgmt_key }} -subj "/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
-    # Sign certificate
-    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ _os_abs_transport_ca }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ _os_abs_mgmt_cert }} -days 3650 -sha256
-    # Cleanup
-    rm {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem {{ opensearch_certs_dir }}/mgmt.csr
-  when: opensearch_use_tls | bool
-
-# ===========================
-# Merge CAs for HTTP Layer (Combined Truststore)
-# ===========================
-- name: Create combined HTTP truststore
-  ansible.builtin.shell: |
-    cat {{ _os_abs_root_ca }} > {{ _os_abs_combined_ca }}
-    echo "" >> {{ _os_abs_combined_ca }}
-    cat {{ _os_abs_transport_ca }} >> {{ _os_abs_combined_ca }}
-  when: opensearch_use_tls | bool
+    # Transport
+    - {
+        src: "{{ opensearch_transport_root_ca_path }}",
+        dest: "transport-root-ca.pem",
+      }
+    - {
+        src: "{{ opensearch_transport_node_cert_path }}",
+        dest: "transport.pem",
+      }
+    - {
+        src: "{{ opensearch_transport_node_key_path }}",
+        dest: "transport-key.pem",
+      }
+    # HTTP
+    - { src: "{{ opensearch_root_ca_path }}", dest: "root-ca.pem" }
+    - { src: "{{ opensearch_node_cert_path }}", dest: "node.pem" }
+    - { src: "{{ opensearch_node_key_path }}", dest: "node-key.pem" }
+    # Admin
+    - { src: "{{ opensearch_mgmt_cert_path }}", dest: "admin.pem" }
+    - { src: "{{ opensearch_mgmt_key_path }}", dest: "admin-key.pem" }
+  ignore_errors: true
 
 - name: Fix certificate permissions and ownership
   ansible.builtin.file:
@@ -163,14 +221,21 @@
     group: opensearch
     mode: "0640"
 
-- name: Apply security configuration (securityadmin.sh via Transport Port)
+- name: Stop OpenSearch Dashboards to prevent connection interference
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+    state: stopped
+  ignore_errors: true
+  failed_when: false
+
+- name: Apply security configuration (securityadmin.sh via HTTPS/9200)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -h 127.0.0.1
-    -p {{ opensearch_transport_port }}
-    -cacert {{ _os_abs_transport_ca }}
+    -p 9200
+    -cacert {{ _os_abs_root_ca }}
     -cert {{ _os_abs_mgmt_cert }}
     -key {{ _os_abs_mgmt_key }}
   environment:
@@ -205,3 +270,10 @@
     host: 127.0.0.1
     delay: 10
     timeout: 150
+
+- name: Ensure OpenSearch Dashboards is started
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+    state: started
+  ignore_errors: true
+  failed_when: false

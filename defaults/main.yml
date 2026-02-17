@@ -76,20 +76,27 @@ opensearch_number_of_replicas: 1
 # ===========================
 # Security / TLS
 # ===========================
+# When true: HTTPS (Port 9200) + Transport TLS (Port 9300)
+# When false: HTTP (Port 9200) + No Transport TLS (or internal only)
 opensearch_use_tls: false
-# Source paths for certificates (Relative to OpenSearch config directory)
-# HTTP layer (External Client-to-Node) - User provided
+
+# Source paths for certificates (Relative to OpenSearch config directory or Absolute)
+# NOTE: When opensearch_use_tls is true, YOU MUST PROVIDE THESE FILES.
+# The role does NOT auto-generate certificates.
+
+# HTTP layer (External Client-to-Node)
 opensearch_root_ca_path: "certs/chain.pem"
 opensearch_node_cert_path: "certs/fullchain.pem"
 opensearch_node_key_path: "certs/privkey.pem"
-opensearch_http_combined_ca_path: "certs/combined-ca.pem"
 
-# Transport layer (Internal Node-to-Node) - Auto-generated
-opensearch_transport_root_ca_path: "certs/transport-root-ca.pem"
-opensearch_transport_node_cert_path: "certs/transport-node.pem"
-opensearch_transport_node_key_path: "certs/transport-node-key.pem"
+# Transport layer (Internal Node-to-Node)
+# Can be the same as HTTP if the cert supports both usages (serverAuth + clientAuth)
+opensearch_transport_root_ca_path: "certs/chain.pem"
+opensearch_transport_node_cert_path: "certs/fullchain.pem"
+opensearch_transport_node_key_path: "certs/privkey.pem"
 
-# Admin certificates (for securityadmin.sh) - Auto-generated
+# Admin certificates (for securityadmin.sh)
+# Must be a client certificate trusted by the Root CA
 opensearch_mgmt_cert_path: "certs/admin.pem"
 opensearch_mgmt_key_path: "certs/admin-key.pem"
 
