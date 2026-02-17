@@ -28,6 +28,17 @@
 # dpkg_options: force-confdef,force-confold ensures that existing user-modified
 # configuration files are preserved during package upgrades instead of being
 # overwritten by the package maintainer's version.
+
+- name: Wait for apt lock (before OpenSearch install)
+  ansible.builtin.shell: |
+    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+      echo "Waiting for apt lock..."
+      sleep 5
+    done
+  changed_when: false
+  timeout: 300
+  when: ansible_os_family == 'Debian'
+
 - name: Install OpenSearch package (Debian/Ubuntu)
   ansible.builtin.apt:
     name: "opensearch={{ opensearch_version }}"
@@ -40,8 +51,8 @@
     DEBIAN_FRONTEND: noninteractive
   register: opensearch_install_deb
   until: opensearch_install_deb is succeeded
-  retries: 5
-  delay: 10
+  retries: 20
+  delay: 30
   when: ansible_os_family == 'Debian'
 
 - name: Install OpenSearch package (RedHat/Amazon)
