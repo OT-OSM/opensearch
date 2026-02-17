@@ -104,6 +104,14 @@
 # ===========================
 # Data Purge (For Fresh Install/Downgrade)
 # ===========================
+- name: Stop OpenSearch before purging data
+  ansible.builtin.systemd:
+    name: opensearch
+    state: stopped
+  when: opensearch_purge_data | bool
+  ignore_errors: true
+  failed_when: false
+
 - name: Purge OpenSearch data directory
   ansible.builtin.file:
     path: "{{ opensearch_data_path }}"
