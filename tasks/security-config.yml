@@ -15,6 +15,33 @@
     mode: "0700"
 
 # ===========================
+# Ensure OpenSearch is stopped before first TLS start
+# ===========================
+- name: Stop OpenSearch before TLS configuration
+  ansible.builtin.systemd:
+    name: opensearch
+    state: stopped
+  failed_when: false
+
+# ===========================
+# Start OpenSearch with TLS config
+# ===========================
+- name: Start OpenSearch with TLS configuration
+  ansible.builtin.systemd:
+    name: opensearch
+    state: started
+    daemon_reload: true
+  async: 300
+  poll: 5
+
+- name: Wait for OpenSearch HTTPS port to be available
+  ansible.builtin.wait_for:
+    port: "{{ opensearch_http_port }}"
+    host: 127.0.0.1
+    delay: 10
+    timeout: 120
+
+# ===========================
 # Internal Users
 # ===========================
 - name: Deploy internal_users.yml
@@ -43,15 +70,15 @@
   failed_when: false
 
 # ===========================
-# Restart after TLS config
+# Restart after security config is applied
 # ===========================
-- name: Restart OpenSearch to apply TLS configuration
+- name: Restart OpenSearch to apply security configuration
   ansible.builtin.systemd:
     name: opensearch
     state: restarted
     daemon_reload: true
 
-- name: Wait for OpenSearch to come back after TLS restart
+- name: Wait for OpenSearch to come back after restart
   ansible.builtin.wait_for:
     port: "{{ opensearch_http_port }}"
     host: 127.0.0.1

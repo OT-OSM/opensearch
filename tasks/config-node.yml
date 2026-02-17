@@ -172,6 +172,19 @@
   when: opensearch_use_tls | bool
 
 # ===========================
+# Certificate Permissions (before service start)
+# ===========================
+- name: Ensure certificate files are readable by opensearch
+  ansible.builtin.file:
+    path: "{{ opensearch_certs_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+    recurse: true
+  when: opensearch_use_tls | bool
+
+# ===========================
 # Service Management
 # ===========================
 - name: Enable OpenSearch service
@@ -180,10 +193,16 @@
     enabled: true
     daemon_reload: true
 
-- name: Start OpenSearch service
+# When TLS is enabled, we do NOT start the service here.
+# security-config.yml will handle: start → securityadmin → restart
+# This avoids the chicken-and-egg problem of starting with TLS
+# before the security index is initialized.
+
+- name: Start OpenSearch service (non-TLS only)
   ansible.builtin.systemd:
     name: opensearch
     state: started
     daemon_reload: true
   async: 300
   poll: 5
+  when: not (opensearch_use_tls | bool)
