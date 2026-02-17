@@ -3,6 +3,9 @@
   ansible.builtin.command: apt-get install -f -y
   become: true
   register: fix_broken
+  retries: 5
+  delay: 10
+  until: fix_broken is succeeded
   changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in fix_broken.stdout"
 
 - name: Install required dependencies (Debian/Ubuntu)

@@ -45,6 +45,7 @@
     state: started
   loop: "{{ groups['opensearch'] | default([]) }}"
   when:
+    - opensearch_enable_cluster_mode | bool
     - groups['opensearch'] | length > 1
     - item != inventory_hostname
   ignore_errors: true
