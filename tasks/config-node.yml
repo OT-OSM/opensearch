@@ -126,6 +126,30 @@
   when: not security_plugin_dir.stat.exists
   notify: Restart OpenSearch
 
+- name: Check if securityconfig directory exists
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-security/securityconfig
+  register: securityconfig_dir
+
+- name: Create securityconfig directory if missing
+  ansible.builtin.file:
+    path: /usr/share/opensearch/plugins/opensearch-security/securityconfig
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0755"
+  when: not securityconfig_dir.stat.exists
+
+- name: Copy default securityconfig files if directory was empty
+  ansible.builtin.shell: |
+    if [ -d /usr/share/opensearch/plugins/opensearch-security/tools/securityconfig ]; then
+      cp -n /usr/share/opensearch/plugins/opensearch-security/tools/securityconfig/* \
+        /usr/share/opensearch/plugins/opensearch-security/securityconfig/ 2>/dev/null || true
+    fi
+    chown -R opensearch:opensearch /usr/share/opensearch/plugins/opensearch-security/securityconfig
+  when: not securityconfig_dir.stat.exists
+  changed_when: true
+
 - name: Ensure correct permissions for plugins directory
   ansible.builtin.file:
     path: /usr/share/opensearch/plugins
