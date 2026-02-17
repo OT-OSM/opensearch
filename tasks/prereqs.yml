@@ -39,7 +39,7 @@
   loop: "{{ groups['opensearch'] | default([]) }}"
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
-    host: "{{ hostvars[item]['private_ip'] | default(hostvars[item]['ansible_host']) }}"
+    host: "{{ hostvars[item]['private_ip'] | default(hostvars[item]['ansible_host'] | default(hostvars[item]['ansible_ssh_host'] | default(item))) }}"
     port: 9300
     timeout: 5
     state: started
