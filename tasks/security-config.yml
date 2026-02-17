@@ -15,25 +15,34 @@
     mode: "0750"
 
 # ===========================
+# Cleanup old internal certs (Forced regeneration)
+# ===========================
+# We remove old internal certs to ensure they are regenerated with the new
+# PKCS#8 format and simplified DNs. This prevents service hangs from older,
+# incompatible certificate formats.
+- name: Remove old internal certificates to force regeneration
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - certs/transport-root-ca.pem
+    - certs/transport-root-ca-key.pem
+    - certs/transport-node.pem
+    - certs/transport-node-key.pem
+    - certs/admin.pem
+    - certs/admin-key.pem
+  when: opensearch_use_tls | bool
+
+# ===========================
 # Generate Transport Certificates (RSA PKCS#8)
 # ===========================
-- name: Check if transport CA exists
-  ansible.builtin.stat:
-    path: "{{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}"
-  register: transport_ca_stat
-
 - name: Generate transport Root CA
   ansible.builtin.shell: |
     openssl genrsa -out {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem 2048
     openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -out {{ opensearch_certs_dir }}/transport-root-ca-key.pem
     openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-root-ca-key.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
     rm {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem
-  when: not transport_ca_stat.stat.exists
-
-- name: Check if transport node certificate exists
-  ansible.builtin.stat:
-    path: "{{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }}"
-  register: transport_node_stat
+  when: opensearch_use_tls | bool
 
 - name: Generate transport node certificate
   ansible.builtin.shell: |
@@ -42,12 +51,7 @@
     openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/CN=opensearch-node" -out {{ opensearch_certs_dir }}/node.csr
     openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
     rm {{ opensearch_certs_dir }}/node-temp-pkcs1.pem {{ opensearch_certs_dir }}/node.csr
-  when: not transport_node_stat.stat.exists
-
-- name: Check if management certificate exists
-  ansible.builtin.stat:
-    path: "{{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }}"
-  register: mgmt_cert_stat
+  when: opensearch_use_tls | bool
 
 - name: Generate management certificate (for securityadmin.sh)
   ansible.builtin.shell: |
@@ -56,7 +60,7 @@
     openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }} -subj "/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
     openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
     rm {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem {{ opensearch_certs_dir }}/mgmt.csr
-  when: not mgmt_cert_stat.stat.exists
+  when: opensearch_use_tls | bool
 
 - name: Fix certificate permissions and ownership
   ansible.builtin.file:
