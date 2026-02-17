@@ -4,7 +4,8 @@
 # ===========================
 # This task file handles TLS certificate setup for OpenSearch.
 # It generates self-signed RSA certificates for the transport layer (node-to-node)
-# to ensure compatibility, while HTTP access uses user-provided certificates.
+# and a management certificate for securityadmin.sh.
+# External HTTP access uses user-provided certificates.
 
 - name: Create certificates directory
   ansible.builtin.file:
@@ -12,7 +13,7 @@
     state: directory
     owner: opensearch
     group: opensearch
-    mode: "0700"
+    mode: "0750"
 
 # ===========================
 # Generate Transport Certificates (RSA)
@@ -24,8 +25,8 @@
 
 - name: Generate transport Root CA
   ansible.builtin.shell: |
-    openssl genrsa -out {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem 2048
-    openssl req -x509 -new -nodes -key {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -sha256 -days 3650 -subj "/C=IN/O=OpsTree/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
+    openssl genrsa -out {{ opensearch_certs_dir }}/transport-root-ca-key.pem 2048
+    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-root-ca-key.pem -sha256 -days 3650 -subj "/C=IN/O=OpsTree/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
   when: not transport_ca_stat.stat.exists
 
 - name: Check if transport node certificate exists
@@ -36,23 +37,23 @@
 - name: Generate transport node certificate
   ansible.builtin.shell: |
     openssl genrsa -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} 2048
-    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/C=IN/O=OpsTree/CN={{ opensearch_node_name }}" -out {{ opensearch_config_dir }}/certs/transport-node.csr
-    openssl x509 -req -in {{ opensearch_config_dir }}/certs/transport-node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
-    rm {{ opensearch_config_dir }}/certs/transport-node.csr
+    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/C=IN/O=OpsTree/CN={{ opensearch_node_name }}" -out {{ opensearch_certs_dir }}/transport-node.csr
+    openssl x509 -req -in {{ opensearch_certs_dir }}/transport-node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
+    rm {{ opensearch_certs_dir }}/transport-node.csr
   when: not transport_node_stat.stat.exists
 
-- name: Check if admin certificate exists
+- name: Check if management certificate exists
   ansible.builtin.stat:
-    path: "{{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }}"
-  register: admin_cert_stat
+    path: "{{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }}"
+  register: mgmt_cert_stat
 
-- name: Generate admin certificate (for securityadmin.sh)
+- name: Generate management certificate (for securityadmin.sh)
   ansible.builtin.shell: |
-    openssl genrsa -out {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }} 2048
-    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }} -subj "/C=IN/O=OpsTree/CN=opensearch-admin" -out {{ opensearch_config_dir }}/certs/admin.csr
-    openssl x509 -req -in {{ opensearch_config_dir }}/certs/admin.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_config_dir }}/certs/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }} -days 3650 -sha256
-    rm {{ opensearch_config_dir }}/certs/admin.csr
-  when: not admin_cert_stat.stat.exists
+    openssl genrsa -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }} 2048
+    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }} -subj "/C=IN/O=OpsTree/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
+    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
+    rm {{ opensearch_certs_dir }}/mgmt.csr
+  when: not mgmt_cert_stat.stat.exists
 
 - name: Fix certificate permissions and ownership
   ansible.builtin.file:
@@ -60,7 +61,7 @@
     state: directory
     owner: opensearch
     group: opensearch
-    mode: "0700"
+    mode: "0750"
     recurse: true
 
 # ===========================
@@ -103,8 +104,8 @@
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -cacert {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
-    -cert {{ opensearch_config_dir }}/{{ opensearch_admin_cert_path }}
-    -key {{ opensearch_config_dir }}/{{ opensearch_admin_key_path }}
+    -cert {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }}
+    -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }}
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result

@@ -90,8 +90,8 @@ opensearch_transport_node_cert_path: "certs/transport-node.pem"
 opensearch_transport_node_key_path: "certs/transport-node-key.pem"
 
 # Admin certificates (for securityadmin.sh) - Auto-generated
-opensearch_admin_cert_path: "certs/admin.pem"
-opensearch_admin_key_path: "certs/admin-key.pem"
+opensearch_mgmt_cert_path: "certs/admin.pem"
+opensearch_mgmt_key_path: "certs/admin-key.pem"
 
 opensearch_admin_dn: []
 opensearch_nodes_dn: []
