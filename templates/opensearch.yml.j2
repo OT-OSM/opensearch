@@ -104,8 +104,9 @@ plugins.security.authcz.admin_dn:
 {% endif %}
 
 # Node DNs
-{% if opensearch_nodes_dn | length > 0 %}
 plugins.security.nodes_dn:
+  - "CN=opensearch-node"
+{% if opensearch_nodes_dn | length > 0 %}
 {% for dn in opensearch_nodes_dn %}
   - {{ dn }}
 {% endfor %}
