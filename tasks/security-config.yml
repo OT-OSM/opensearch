@@ -2,6 +2,10 @@
 # ===========================
 # TLS Certificate Deployment
 # ===========================
+# Note: Certificates are expected to be manually placed on the server
+# or managed by an external process/role, matching the Keycloak pattern.
+# We only ensure the directory exists.
+
 - name: Create certificates directory
   ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}"
@@ -9,34 +13,6 @@
     owner: opensearch
     group: opensearch
     mode: "0700"
-
-- name: Copy TLS certificates
-  ansible.builtin.copy:
-    src: "{{ item.src }}"
-    dest: "{{ opensearch_certs_dir }}/{{ item.filename }}"
-    owner: opensearch
-    group: opensearch
-    mode: "0600"
-  loop:
-    - src: "{{ opensearch_root_ca_path | default('') }}"
-      filename: root-ca.pem
-      enabled: "{{ opensearch_root_ca_path is defined }}"
-    - src: "{{ opensearch_admin_cert_path | default('') }}"
-      filename: admin.pem
-      enabled: "{{ opensearch_admin_cert_path is defined }}"
-    - src: "{{ opensearch_admin_key_path | default('') }}"
-      filename: admin-key.pem
-      enabled: "{{ opensearch_admin_key_path is defined }}"
-    - src: "{{ opensearch_node_cert_path | default('') }}"
-      filename: node.pem
-      enabled: "{{ opensearch_node_cert_path is defined }}"
-    - src: "{{ opensearch_node_key_path | default('') }}"
-      filename: node-key.pem
-      enabled: "{{ opensearch_node_key_path is defined }}"
-  when: item.enabled | bool
-  loop_control:
-    label: "{{ item.filename }}"
-  notify: Restart OpenSearch
 
 # ===========================
 # Internal Users
@@ -57,9 +33,9 @@
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
-    -cacert {{ opensearch_certs_dir }}/root-ca.pem
-    -cert {{ opensearch_certs_dir }}/admin.pem
-    -key {{ opensearch_certs_dir }}/admin-key.pem
+    -cacert {{ opensearch_root_ca_path }}
+    -cert {{ opensearch_admin_cert_path }}
+    -key {{ opensearch_admin_key_path }}
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result

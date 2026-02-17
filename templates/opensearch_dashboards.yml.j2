@@ -23,8 +23,8 @@ opensearch.hosts: ["http://{{ opensearch_dashboards_opensearch_host }}"]
 # ===========================
 {% if opensearch_use_tls | bool %}
 server.ssl.enabled: true
-server.ssl.certificate: {{ opensearch_dashboards_config_dir }}/certs/node.pem
-server.ssl.key: {{ opensearch_dashboards_config_dir }}/certs/node-key.pem
+server.ssl.certificate: {{ opensearch_node_cert_path }}
+server.ssl.key: {{ opensearch_node_key_path }}
 {% else %}
 server.ssl.enabled: false
 opensearch_security.enabled: false

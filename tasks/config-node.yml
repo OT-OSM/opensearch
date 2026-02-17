@@ -113,6 +113,29 @@
   notify: Restart OpenSearch
 
 # ===========================
+# Plugin Management (Auto-Recovery)
+# ===========================
+- name: Check if opensearch-security plugin exists
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-security
+  register: security_plugin_dir
+
+- name: Install opensearch-security plugin if missing
+  ansible.builtin.command:
+    cmd: /usr/share/opensearch/bin/opensearch-plugin install -b opensearch-security
+  when: not security_plugin_dir.stat.exists
+  notify: Restart OpenSearch
+
+- name: Ensure correct permissions for plugins directory
+  ansible.builtin.file:
+    path: /usr/share/opensearch/plugins
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0755"
+    recurse: true
+
+# ===========================
 # Service Management
 # ===========================
 - name: Enable OpenSearch service
