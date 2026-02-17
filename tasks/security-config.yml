@@ -131,9 +131,9 @@
     msg: "OpenSearch failed to start with TLS. Check logs above."
   when: _os_start_tls.failed | default(false)
 
-- name: Wait for OpenSearch port
+- name: Wait for OpenSearch transport port (9300)
   ansible.builtin.wait_for:
-    port: "{{ opensearch_http_port }}"
+    port: "{{ opensearch_transport_port }}"
     host: 127.0.0.1
     delay: 10
     timeout: 300
@@ -146,6 +146,15 @@
 # ===========================
 # Apply Security Config
 # ===========================
+- name: Audit configuration for invalid settings
+  ansible.builtin.shell: |
+    grep "plugins.security.enabled" {{ opensearch_config_dir }}/opensearch.yml || true
+  register: _os_config_audit
+
+- name: Display configuration audit results
+  ansible.builtin.debug:
+    var: _os_config_audit.stdout_lines
+
 - name: Deploy internal_users.yml
   ansible.builtin.template:
     src: internal_users.yml.j2
@@ -154,13 +163,14 @@
     group: opensearch
     mode: "0640"
 
-- name: Apply security configuration (securityadmin.sh)
+- name: Apply security configuration (securityadmin.sh via Transport Port)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -h 127.0.0.1
-    -cacert {{ _os_abs_root_ca }}
+    -p {{ opensearch_transport_port }}
+    -cacert {{ _os_abs_transport_ca }}
     -cert {{ _os_abs_mgmt_cert }}
     -key {{ _os_abs_mgmt_key }}
   environment:
@@ -168,12 +178,13 @@
   register: security_admin_result
   ignore_errors: true
 
-- name: Capture OpenSearch journal logs on securityadmin failure
-  ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
+- name: Capture detailed server logs on securityadmin failure
+  ansible.builtin.shell: tail -n 200 {{ opensearch_logs_path }}/{{ opensearch_cluster_name }}-standalone.log
   when: security_admin_result.failed | default(false)
   register: _os_security_logs
+  ignore_errors: true
 
-- name: Display OpenSearch journal logs on securityadmin failure
+- name: Display internal server logs on failure
   ansible.builtin.debug:
     var: _os_security_logs.stdout_lines
   when: security_admin_result.failed | default(false)
