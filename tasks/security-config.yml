@@ -281,6 +281,10 @@
     seconds: 30
   when: opensearch_use_tls | bool
 
+# ===========================
+# 7. Apply Security Config
+# ===========================
+
 - name: DEBUG - Check opensearch.yml content on target
   ansible.builtin.shell: grep "plugins.security.ssl.http.enabled" /etc/opensearch/opensearch.yml
   register: _dbg_config
@@ -301,10 +305,6 @@
   ansible.builtin.debug:
     var: _dbg_script.stdout_lines
 
-# ===========================
-# 7. Apply Security Config
-# ===========================
-
 - name: Deploy internal_users.yml
   ansible.builtin.template:
     src: internal_users.yml.j2
@@ -312,17 +312,6 @@
     owner: opensearch
     group: opensearch
     mode: "0640"
-
-- name: DEBUG - SecurityAdmin Help
-  ansible.builtin.command: >
-    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
-  register: _dbg_help
-  changed_when: false
-  ignore_errors: true
-
-- name: DEBUG - Show Help
-  ansible.builtin.debug:
-    var: _dbg_help.stdout_lines
 
 - name: Apply security configuration (securityadmin.sh via HTTPS/9200)
   ansible.builtin.command: >
@@ -336,8 +325,10 @@
     -key {{ opensearch_certs_dir }}/admin-gen/admin.key
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
+    OPENSEARCH_HOME: "/usr/share/opensearch"
     OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
-    OPENSEARCH_JAVA_OPTS: "-Dopensearch.path.conf={{ opensearch_config_dir }} -Dplugins.security.ssl.http.enabled=true"
+    ES_PATH_CONF: "{{ opensearch_config_dir }}"
+    OPENSEARCH_JAVA_OPTS: "-Dopensearch.path.conf={{ opensearch_config_dir }} -Dplugins.security.ssl.http.enabled=true -Dplugins.security.ssl.transport.enabled=true"
   register: security_admin_result
   ignore_errors: true
 
