@@ -40,9 +40,8 @@ opensearch_transport_port: 9300
 opensearch_java_package: "default-jdk-headless" # Overridden by vars/{os}.yml
 opensearch_java_home: "/usr/share/opensearch/jdk"
 # ===========================
-# JVM Heap
-# ===========================
-opensearch_jvm_heap_size: "512m"
+# JVM Heap Size (Recommended: 50% of available RAM, up to 32GB)
+opensearch_jvm_heap_size: "1g"
 
 # ===========================
 # System Tuning
@@ -78,11 +77,11 @@ opensearch_number_of_replicas: 1
 # Security / TLS
 # ===========================
 opensearch_use_tls: false
-# Source paths for certificates (on Ansible controller or manually placed)
+# Source paths for certificates (Relative to OpenSearch config directory)
 # HTTP layer (External Client-to-Node) - User provided
-opensearch_root_ca_path: "/etc/opensearch/certs/chain.pem"
-opensearch_node_cert_path: "/etc/opensearch/certs/fullchain.pem"
-opensearch_node_key_path: "/etc/opensearch/certs/privkey.pem"
+opensearch_root_ca_path: "certs/chain.pem"
+opensearch_node_cert_path: "certs/fullchain.pem"
+opensearch_node_key_path: "certs/privkey.pem"
 
 # Transport layer (Internal Node-to-Node) - Auto-generated
 opensearch_transport_root_ca_path: "certs/transport-root-ca.pem"
