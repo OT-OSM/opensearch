@@ -281,6 +281,26 @@
     seconds: 30
   when: opensearch_use_tls | bool
 
+- name: DEBUG - Check opensearch.yml content on target
+  ansible.builtin.shell: grep "plugins.security.ssl.http.enabled" /etc/opensearch/opensearch.yml
+  register: _dbg_config
+  changed_when: false
+  ignore_errors: true
+
+- name: DEBUG - Show config grep
+  ansible.builtin.debug:
+    var: _dbg_config.stdout_lines
+
+- name: DEBUG - Check securityadmin.sh script content
+  ansible.builtin.shell: head -n 50 {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
+  register: _dbg_script
+  changed_when: false
+  ignore_errors: true
+
+- name: DEBUG - Show script content
+  ansible.builtin.debug:
+    var: _dbg_script.stdout_lines
+
 # ===========================
 # 7. Apply Security Config
 # ===========================
@@ -317,6 +337,7 @@
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
     OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
+    OPENSEARCH_JAVA_OPTS: "-Dopensearch.path.conf={{ opensearch_config_dir }} -Dplugins.security.ssl.http.enabled=true"
   register: security_admin_result
   ignore_errors: true
 
