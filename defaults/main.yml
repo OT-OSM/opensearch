@@ -2,7 +2,7 @@
 # ===========================
 # OpenSearch Version Control
 # ===========================
-opensearch_version: "2.19.4"
+opensearch_version: "2.11.1"
 opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"
 opensearch_dashboards_version: "{{ opensearch_version }}"
 
