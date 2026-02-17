@@ -252,28 +252,6 @@
   register: _os_start_tls
   ignore_errors: true
 
-- name: DEBUG - SecurityAdmin Help
-  ansible.builtin.command: >
-    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
-  register: _dbg_help
-  changed_when: false
-  ignore_errors: true
-
-- name: DEBUG - Show Help
-  ansible.builtin.debug:
-    var: _dbg_help.stdout_lines
-
-- name: DEBUG - SecurityAdmin Help
-  ansible.builtin.command: >
-    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
-  register: _dbg_help
-  changed_when: false
-  ignore_errors: true
-
-- name: DEBUG - Show Help
-  ansible.builtin.debug:
-    var: _dbg_help.stdout_lines
-
 - name: Capture OpenSearch journal logs on failure
   ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
   when: _os_start_tls.failed | default(false)
@@ -315,13 +293,24 @@
     group: opensearch
     mode: "0640"
 
-- name: Apply security configuration (securityadmin.sh via Transport/9300)
+- name: DEBUG - SecurityAdmin Help
+  ansible.builtin.command: >
+    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
+  register: _dbg_help
+  changed_when: false
+  ignore_errors: true
+
+- name: DEBUG - Show Help
+  ansible.builtin.debug:
+    var: _dbg_help.stdout_lines
+
+- name: Apply security configuration (securityadmin.sh via HTTPS/9200)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
-    -icl -nhnv
+    -icl -nhnv -ssl
     -h 127.0.0.1
-    -p 9300
+    -p 9200
     -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
     -cert {{ opensearch_certs_dir }}/admin-gen/admin.pem
     -key {{ opensearch_certs_dir }}/admin-gen/admin.key
