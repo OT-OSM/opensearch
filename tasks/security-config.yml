@@ -252,6 +252,28 @@
   register: _os_start_tls
   ignore_errors: true
 
+- name: DEBUG - SecurityAdmin Help
+  ansible.builtin.command: >
+    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
+  register: _dbg_help
+  changed_when: false
+  ignore_errors: true
+
+- name: DEBUG - Show Help
+  ansible.builtin.debug:
+    var: _dbg_help.stdout_lines
+
+- name: DEBUG - SecurityAdmin Help
+  ansible.builtin.command: >
+    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh --help
+  register: _dbg_help
+  changed_when: false
+  ignore_errors: true
+
+- name: DEBUG - Show Help
+  ansible.builtin.debug:
+    var: _dbg_help.stdout_lines
+
 - name: Capture OpenSearch journal logs on failure
   ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
   when: _os_start_tls.failed | default(false)
