@@ -62,6 +62,9 @@ opensearch_systemd_limit_nproc: 4096
 # Path Configuration
 # ===========================
 opensearch_data_path: /var/lib/opensearch
+# Set to 'true' to wipe the data directory before installation.
+# Useful for fixing version mismatch issues (e.g. downgrading).
+opensearch_purge_data: false
 opensearch_logs_path: /var/log/opensearch
 opensearch_config_dir: "/etc/opensearch"
 opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
