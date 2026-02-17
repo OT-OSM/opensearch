@@ -1,2 +1,10 @@
 ---
 opensearch_java_package: java-21-amazon-corretto
+opensearch_prerequisites:
+  - curl
+  - gnupg
+  - ca-certificates
+  - tar
+  - gzip
+  - unzip
+  - shadow-utils
