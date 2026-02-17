@@ -308,7 +308,7 @@
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
-    -icl -nhnv -ssl
+    -icl -nhnv
     -h 127.0.0.1
     -p 9200
     -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
@@ -316,6 +316,7 @@
     -key {{ opensearch_certs_dir }}/admin-gen/admin.key
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
+    OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
   register: security_admin_result
   ignore_errors: true
 
