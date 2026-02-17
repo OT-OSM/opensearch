@@ -41,3 +41,19 @@
   register: security_admin_result
   changed_when: "'ERR:' not in security_admin_result.stdout"
   failed_when: false
+
+# ===========================
+# Restart after TLS config
+# ===========================
+- name: Restart OpenSearch to apply TLS configuration
+  ansible.builtin.systemd:
+    name: opensearch
+    state: restarted
+    daemon_reload: true
+
+- name: Wait for OpenSearch to come back after TLS restart
+  ansible.builtin.wait_for:
+    port: "{{ opensearch_http_port }}"
+    host: 127.0.0.1
+    delay: 10
+    timeout: 120
