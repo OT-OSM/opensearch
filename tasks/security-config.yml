@@ -14,21 +14,32 @@
     group: opensearch
     mode: "0750"
 
+# Set absolute paths for robustness (handles cases where variables might be absolute or relative)
+- name: Set absolute certificate paths for securityadmin
+  ansible.builtin.set_fact:
+    _os_abs_root_ca: "{{ (opensearch_root_ca_path is abs) | ternary(opensearch_root_ca_path, opensearch_config_dir ~ '/' ~ opensearch_root_ca_path) }}"
+    _os_abs_mgmt_cert: "{{ (opensearch_mgmt_cert_path is abs) | ternary(opensearch_mgmt_cert_path, opensearch_config_dir ~ '/' ~ opensearch_mgmt_cert_path) }}"
+    _os_abs_mgmt_key: "{{ (opensearch_mgmt_key_path is abs) | ternary(opensearch_mgmt_key_path, opensearch_config_dir ~ '/' ~ opensearch_mgmt_key_path) }}"
+    _os_abs_transport_ca: "{{ (opensearch_transport_root_ca_path is abs) | ternary(opensearch_transport_root_ca_path, opensearch_config_dir ~ '/' ~ opensearch_transport_root_ca_path) }}"
+    _os_abs_transport_cert: "{{ (opensearch_transport_node_cert_path is abs) | ternary(opensearch_transport_node_cert_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_cert_path) }}"
+    _os_abs_transport_key: "{{ (opensearch_transport_node_key_path is abs) | ternary(opensearch_transport_node_key_path, opensearch_config_dir ~ '/' ~ opensearch_transport_node_key_path) }}"
+    _os_abs_combined_ca: "{{ (opensearch_http_combined_ca_path is abs) | ternary(opensearch_http_combined_ca_path, opensearch_config_dir ~ '/' ~ opensearch_http_combined_ca_path) }}"
+
 # ===========================
 # Cleanup old internal certs (Forced regeneration)
 # ===========================
 - name: Remove old internal certificates to force regeneration
   ansible.builtin.file:
-    path: "{{ opensearch_config_dir }}/{{ item }}"
+    path: "{{ item }}"
     state: absent
   loop:
-    - certs/transport-root-ca.pem
-    - certs/transport-root-ca-key.pem
-    - certs/transport-node.pem
-    - certs/transport-node-key.pem
-    - certs/admin.pem
-    - certs/admin-key.pem
-    - certs/combined-ca.pem
+    - "{{ _os_abs_transport_ca }}"
+    - "{{ opensearch_certs_dir }}/transport-ca-pkcs1.pem"
+    - "{{ _os_abs_transport_cert }}"
+    - "{{ _os_abs_transport_key }}"
+    - "{{ _os_abs_mgmt_cert }}"
+    - "{{ _os_abs_mgmt_key }}"
+    - "{{ _os_abs_combined_ca }}"
   when: opensearch_use_tls | bool
 
 # ===========================
@@ -37,7 +48,7 @@
 - name: Generate transport Root CA
   ansible.builtin.shell: |
     openssl genrsa -out {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem 2048
-    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
+    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ _os_abs_transport_ca }}
   when: opensearch_use_tls | bool
 
 - name: Generate transport node certificate
@@ -45,11 +56,11 @@
     # Generate PKCS#1 key
     openssl genrsa -out {{ opensearch_certs_dir }}/node-temp-pkcs1.pem 2048
     # Convert to PKCS#8 for OpenSearch
-    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/node-temp-pkcs1.pem -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }}
+    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/node-temp-pkcs1.pem -out {{ _os_abs_transport_key }}
     # Generate CSR
-    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/CN=opensearch-node" -out {{ opensearch_certs_dir }}/node.csr
+    openssl req -new -key {{ _os_abs_transport_key }} -subj "/CN=opensearch-node" -out {{ opensearch_certs_dir }}/node.csr
     # Sign certificate
-    openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
+    openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ _os_abs_transport_ca }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ _os_abs_transport_cert }} -days 3650 -sha256
     # Cleanup
     rm {{ opensearch_certs_dir }}/node-temp-pkcs1.pem {{ opensearch_certs_dir }}/node.csr
   when: opensearch_use_tls | bool
@@ -59,11 +70,11 @@
     # Generate PKCS#1 key
     openssl genrsa -out {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem 2048
     # Convert to PKCS#8
-    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }}
+    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem -out {{ _os_abs_mgmt_key }}
     # Generate CSR
-    openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }} -subj "/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
+    openssl req -new -key {{ _os_abs_mgmt_key }} -subj "/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
     # Sign certificate
-    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
+    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ _os_abs_transport_ca }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ _os_abs_mgmt_cert }} -days 3650 -sha256
     # Cleanup
     rm {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem {{ opensearch_certs_dir }}/mgmt.csr
   when: opensearch_use_tls | bool
@@ -71,13 +82,11 @@
 # ===========================
 # Merge CAs for HTTP Layer (Combined Truststore)
 # ===========================
-# To allow securityadmin.sh to use the auto-generated admin cert while OpenSearch
-# REST API uses Let's Encrypt for clients, we combine both CAs.
 - name: Create combined HTTP truststore
   ansible.builtin.shell: |
-    cat {{ opensearch_config_dir }}/{{ opensearch_root_ca_path }} > {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
-    echo "" >> {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
-    cat {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} >> {{ opensearch_config_dir }}/{{ opensearch_http_combined_ca_path }}
+    cat {{ _os_abs_root_ca }} > {{ _os_abs_combined_ca }}
+    echo "" >> {{ _os_abs_combined_ca }}
+    cat {{ _os_abs_transport_ca }} >> {{ _os_abs_combined_ca }}
   when: opensearch_use_tls | bool
 
 - name: Fix certificate permissions and ownership
@@ -145,9 +154,9 @@
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
-    -cacert {{ opensearch_config_dir }}/{{ opensearch_root_ca_path }}
-    -cert {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }}
-    -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }}
+    -cacert {{ _os_abs_root_ca }}
+    -cert {{ _os_abs_mgmt_cert }}
+    -key {{ _os_abs_mgmt_key }}
   environment:
     JAVA_HOME: "{{ opensearch_java_home }}"
   register: security_admin_result
