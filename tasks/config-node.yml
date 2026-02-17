@@ -159,6 +159,18 @@
     mode: "0755"
     recurse: true
 
+- name: Remove demo certificates from config directory
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - esnode.pem
+    - esnode-key.pem
+    - root-ca.pem
+    - kirk.pem
+    - kirk-key.pem
+  when: opensearch_use_tls | bool
+
 # ===========================
 # Service Management
 # ===========================
