@@ -17,9 +17,6 @@
 # ===========================
 # Cleanup old internal certs (Forced regeneration)
 # ===========================
-# We remove old internal certs to ensure they are regenerated with the new
-# PKCS#8 format and simplified DNs. This prevents service hangs from older,
-# incompatible certificate formats.
 - name: Remove old internal certificates to force regeneration
   ansible.builtin.file:
     path: "{{ opensearch_config_dir }}/{{ item }}"
@@ -39,26 +36,34 @@
 - name: Generate transport Root CA
   ansible.builtin.shell: |
     openssl genrsa -out {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem 2048
-    openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -out {{ opensearch_certs_dir }}/transport-root-ca-key.pem
-    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-root-ca-key.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
-    rm {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem
+    openssl req -x509 -new -nodes -key {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -sha256 -days 3650 -subj "/CN=Transport-CA" -out {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}
   when: opensearch_use_tls | bool
 
 - name: Generate transport node certificate
   ansible.builtin.shell: |
+    # Generate PKCS#1 key
     openssl genrsa -out {{ opensearch_certs_dir }}/node-temp-pkcs1.pem 2048
+    # Convert to PKCS#8 for OpenSearch
     openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/node-temp-pkcs1.pem -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }}
+    # Generate CSR
     openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }} -subj "/CN=opensearch-node" -out {{ opensearch_certs_dir }}/node.csr
-    openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
+    # Sign certificate
+    openssl x509 -req -in {{ opensearch_certs_dir }}/node.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }} -days 3650 -sha256
+    # Cleanup
     rm {{ opensearch_certs_dir }}/node-temp-pkcs1.pem {{ opensearch_certs_dir }}/node.csr
   when: opensearch_use_tls | bool
 
 - name: Generate management certificate (for securityadmin.sh)
   ansible.builtin.shell: |
+    # Generate PKCS#1 key
     openssl genrsa -out {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem 2048
+    # Convert to PKCS#8
     openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }}
+    # Generate CSR
     openssl req -new -key {{ opensearch_config_dir }}/{{ opensearch_mgmt_key_path }} -subj "/CN=opensearch-admin" -out {{ opensearch_certs_dir }}/mgmt.csr
-    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-root-ca-key.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
+    # Sign certificate
+    openssl x509 -req -in {{ opensearch_certs_dir }}/mgmt.csr -CA {{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }} -CAkey {{ opensearch_certs_dir }}/transport-ca-pkcs1.pem -CAcreateserial -out {{ opensearch_config_dir }}/{{ opensearch_mgmt_cert_path }} -days 3650 -sha256
+    # Cleanup
     rm {{ opensearch_certs_dir }}/mgmt-temp-pkcs1.pem {{ opensearch_certs_dir }}/mgmt.csr
   when: opensearch_use_tls | bool
 
@@ -84,8 +89,25 @@
   ansible.builtin.systemd:
     name: opensearch
     state: started
-  async: 300
-  poll: 5
+  async: 600
+  poll: 10
+  register: _os_start_tls
+  ignore_errors: true
+
+- name: Capture OpenSearch journal logs on failure
+  ansible.builtin.shell: journalctl -u opensearch -n 100 --no-pager
+  when: _os_start_tls.failed | default(false)
+  register: _os_journal_logs
+
+- name: Display OpenSearch journal logs on failure
+  ansible.builtin.debug:
+    var: _os_journal_logs.stdout_lines
+  when: _os_start_tls.failed | default(false)
+
+- name: Fail if OpenSearch failed to start
+  ansible.builtin.fail:
+    msg: "OpenSearch failed to start with TLS. Check logs above."
+  when: _os_start_tls.failed | default(false)
 
 - name: Wait for OpenSearch port
   ansible.builtin.wait_for:

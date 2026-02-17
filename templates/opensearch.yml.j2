@@ -83,23 +83,23 @@ cluster.info.update.interval: 30s
 plugins.security.enabled: true
 
 # Transport layer (node-to-node)
-plugins.security.ssl.transport.pemcert_filepath: {{ opensearch_transport_node_cert_path }}
-plugins.security.ssl.transport.pemkey_filepath: {{ opensearch_transport_node_key_path }}
-plugins.security.ssl.transport.pemtrustedcas_filepath: {{ opensearch_transport_root_ca_path }}
+plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
+plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
+plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_root_ca_path }}"
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
 # HTTP layer (client-to-node)
 plugins.security.ssl.http.enabled: true
-plugins.security.ssl.http.pemcert_filepath: {{ opensearch_node_cert_path }}
-plugins.security.ssl.http.pemkey_filepath: {{ opensearch_node_key_path }}
-plugins.security.ssl.http.pemtrustedcas_filepath: {{ opensearch_root_ca_path }}
+plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
+plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
+plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
 
 # Admin DNs
 plugins.security.authcz.admin_dn:
   - "CN=opensearch-admin"
 {% if opensearch_admin_dn | length > 0 %}
 {% for dn in opensearch_admin_dn %}
-  - {{ dn }}
+  - "{{ dn }}"
 {% endfor %}
 {% endif %}
 
@@ -108,7 +108,7 @@ plugins.security.nodes_dn:
   - "CN=opensearch-node"
 {% if opensearch_nodes_dn | length > 0 %}
 {% for dn in opensearch_nodes_dn %}
-  - {{ dn }}
+  - "{{ dn }}"
 {% endfor %}
 {% endif %}
 
