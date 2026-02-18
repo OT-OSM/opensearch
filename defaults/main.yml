@@ -1,168 +1,143 @@
----
 # ===========================
-# OpenSearch Version Control
+# OpenSearch Configuration
+# Managed by Ansible
 # ===========================
-opensearch_version: "2.11.1"
-opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"
-opensearch_dashboards_version: "{{ opensearch_version }}"
+
+{% set is_cluster = (opensearch_enable_cluster_mode | bool) and
+   ((opensearch_discovery_seed_hosts | length > 0) or
+    (opensearch_initial_master_nodes | length > 0) or
+    (groups['opensearch'] | default([]) | length > 1)) %}
 
 # ===========================
-# Installation Toggles
+# Cluster / Node
 # ===========================
-opensearch_install_node: true
-opensearch_install_dashboard: true
-opensearch_enable_cluster_mode: true
-opensearch_bootstrap_cluster: false
+{% if is_cluster %}
+cluster.name: {{ opensearch_cluster_name }}
+{% else %}
+cluster.name: {{ opensearch_cluster_name }}-standalone
+{% endif %}
 
-# ===========================
-# Cluster Configuration
-# ===========================
-opensearch_cluster_name: "opensearch-cluster"
-opensearch_node_name: "{{ inventory_hostname }}"
-opensearch_node_roles:
-  - cluster_manager
-  - data
-  - ingest
-opensearch_discovery_seed_hosts: []
-opensearch_initial_master_nodes: []
-opensearch_domain_name: "example.com"
+node.name: {{ opensearch_node_name }}
+
+path.data: {{ opensearch_data_path }}
+path.logs: {{ opensearch_logs_path }}
 
 # ===========================
 # Network & Connectivity
 # ===========================
-opensearch_network_host: "0.0.0.0"
-opensearch_http_port: 9200
-opensearch_transport_port: 9300
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
 
 # ===========================
-# Java Configuration
+# Discovery
 # ===========================
-opensearch_java_package: "default-jdk-headless" # Overridden by vars/{os}.yml
-opensearch_java_home: "/usr/share/opensearch/jdk"
-# ===========================
-# JVM Heap Size (Recommended: 50% of available RAM, up to 32GB)
-opensearch_jvm_heap_size: "1g"
+{% if is_cluster %}
+discovery.seed_hosts:
+{% for host in groups['opensearch'] %}
+  - {{ hostvars[host]['ansible_default_ipv4']['address'] | default(host) }}
+{% endfor %}
+
+cluster.initial_master_nodes:
+{% for host in groups['opensearch'] %}
+  - {{ host }}
+{% endfor %}
+{% else %}
+discovery.type: single-node
+{% endif %}
 
 # ===========================
-# System Tuning
+# Node Roles
 # ===========================
-opensearch_vm_max_map_count: 262144
-opensearch_disable_swap: false
-opensearch_configure_hostname: true
-opensearch_bootstrap_memory_lock: false
-
-# ===========================
-# Systemd / Resource Limits
-# ===========================
-opensearch_systemd_timeout: 900
-opensearch_systemd_limit_nofile: 65536
-opensearch_systemd_limit_nproc: 4096
+node.roles:
+{% for role in opensearch_node_roles %}
+  - {{ role }}
+{% endfor %}
 
 # ===========================
-# Path Configuration
+# Memory / Bootstrap
 # ===========================
-opensearch_data_path: /var/lib/opensearch
-# Set to 'true' to wipe the data directory before installation.
-# Useful for fixing version mismatch issues (e.g. downgrading).
-opensearch_purge_data: false
-opensearch_logs_path: /var/log/opensearch
-opensearch_config_dir: "/etc/opensearch"
-opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
-opensearch_security_config_dir: "/usr/share/opensearch/plugins/opensearch-security/securityconfig"
+bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | default(false) }}
 
 # ===========================
-# Index Defaults
+# Performance
 # ===========================
-opensearch_number_of_shards: 1
-opensearch_number_of_replicas: 1
-
-# ===========================
-# Security / TLS
-# ===========================
-# When true: HTTPS (Port 9200) + Transport TLS (Port 9300)
-# When false: HTTP (Port 9200) + No Transport TLS (or internal only)
-opensearch_use_tls: false
-
-# Source paths for certificates (Relative to OpenSearch config directory or Absolute)
-# NOTE: When opensearch_use_tls is true, YOU MUST PROVIDE THESE FILES.
-# The role does NOT auto-generate certificates.
-
-# HTTP layer (External Client-to-Node)
-opensearch_root_ca_path: "certs/chain.pem"
-opensearch_node_cert_path: "certs/fullchain.pem"
-opensearch_node_key_path: "certs/privkey.pem"
-
-# Transport layer (Internal Node-to-Node)
-# Can be the same as HTTP if the cert supports both usages (serverAuth + clientAuth)
-opensearch_transport_root_ca_path: "certs/chain.pem"
-opensearch_transport_node_cert_path: "certs/fullchain.pem"
-opensearch_transport_node_key_path: "certs/privkey.pem"
-
-# Admin certificates (for securityadmin.sh)
-# Must be a client certificate trusted by the Root CA
-opensearch_admin_cert_path: "certs/admin.pem"
-opensearch_admin_key_path: "certs/admin-key.pem"
-
-opensearch_admin_dn: []
-opensearch_nodes_dn: []
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.info.update.interval: 30s
 
 # ===========================
-# Authentication / SSO
+# Security (HTTP + HTTPS SAFE)
 # ===========================
-opensearch_enable_sso: false
-opensearch_auth_type: "basic" # Options: basic, openid, saml
-opensearch_admin_username: "admin"
-opensearch_admin_password: "Strong@321"
-opensearch_admin_password_hash: ""
-opensearch_kibanaserver_password_hash: "$2a$12$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrU3H."
+plugins.security.disabled: false
+plugins.security.allow_default_init_securityindex: true
 
-# OpenID Connect Configuration (when opensearch_auth_type == 'openid')
-opensearch_openid_connect_url: ""
-opensearch_openid_client_id: ""
-opensearch_openid_client_secret: ""
-opensearch_openid_scope: "openid profile email"
-opensearch_openid_base_redirect_url: ""
+# ---------- Admin DN ----------
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
-# SAML Configuration (when opensearch_auth_type == 'saml')
-opensearch_saml_idp_metadata_url: ""
-opensearch_saml_entity_id: ""
-opensearch_saml_exchange_key: ""
+{% if opensearch_use_tls | bool %}
 
 # ===========================
-# Access Control
+# TLS ENABLED (HTTPS)
 # ===========================
-opensearch_access_control_enabled: false
-opensearch_custom_roles: []
-# Example:
-#   - name: "readall_role"
-#     cluster_permissions: ["cluster_composite_ops_ro"]
-#     index_permissions:
-#       - index_patterns: ["*"]
-#         allowed_actions: ["read", "indices:data/read/*"]
 
-opensearch_custom_role_mappings: []
-# Example:
-#   - role: "readall_role"
-#     backend_roles: ["readall"]
+# ---------- Transport layer ----------
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.clientauth_mode: OPTIONAL
 
-opensearch_custom_internal_users: []
-# Example:
-#   - name: "readonly_user"
-#     password_hash: "$2a$12$..."
-#     backend_roles: ["readall"]
+# ---------- HTTP layer ----------
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
+plugins.security.ssl.http.enforce_hostname_verification: false
+plugins.security.ssl.http.clientauth_mode: OPTIONAL
+
+{% else %}
+
+# ===========================
+# TLS DISABLED (HTTP ONLY)
+# ===========================
+
+plugins.security.ssl.transport.enabled: false
+plugins.security.ssl.http.enabled: false
+
+{% endif %}
+
+# ===========================
+# Security behaviour
+# ===========================
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+
+plugins.security.restapi.roles_enabled:
+  - all_access
+  - security_rest_api_access
+
+plugins.security.audit.type: internal_opensearch
+
+plugins.security.system_indices.enabled: true
+plugins.security.system_indices.indices:
+  - ".opendistro-alerting-config"
+  - ".opendistro-alerting-alert*"
+  - ".opendistro-anomaly-results*"
+  - ".opendistro-anomaly-detector*"
+  - ".opendistro-anomaly-checkpoints"
+  - ".opendistro-anomaly-detection-state"
+  - ".opendistro-reports-*"
+  - ".opendistro-notifications-*"
+  - ".opendistro-notebooks"
+  - ".opendistro-asynchronous-search-response*"
 
 # ===========================
 # Metrics / Monitoring
 # ===========================
-opensearch_metrics_enabled: false
-opensearch_prometheus_port: 9600
-opensearch_performance_analyzer_enabled: false
-
-# ===========================
-# OpenSearch Dashboards
-# ===========================
-opensearch_dashboards_port: 5601
-opensearch_dashboards_host: "0.0.0.0"
-opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
-opensearch_dashboards_admin_username: "admin"
-opensearch_dashboards_opensearch_host: "localhost:9200"
+{% if opensearch_metrics_enabled | bool %}
+opensearch.experimental.feature.telemetry.enabled: true
+{% endif %}
