@@ -4,12 +4,9 @@ _meta:
 
 {{ opensearch_admin_username }}:
   hash: "{{ opensearch_admin_password | password_hash('bcrypt') }}"
-  all_access:
-    reserved: true
-    backend_roles:
-      - admin
-    users:
-      - admin
+  reserved: true
+  backend_roles:
+    - admin
   description: "Admin user"
 
 kibanaserver:
