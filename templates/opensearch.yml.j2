@@ -16,6 +16,7 @@ cluster.name: {{ opensearch_cluster_name }}
 {% else %}
 cluster.name: {{ opensearch_cluster_name }}-standalone
 {% endif %}
+
 node.name: {{ opensearch_node_name }}
 
 path.data: {{ opensearch_data_path }}
@@ -65,26 +66,12 @@ cluster.routing.allocation.disk.threshold_enabled: true
 cluster.info.update.interval: 30s
 
 # ===========================
-# Security (TLS / HTTPS)
+# Security (HTTP + HTTPS SAFE)
 # ===========================
-{% if opensearch_use_tls | bool %}
 
+# 🔐 SECURITY MUST ALWAYS BE ENABLED
 plugins.security.disabled: false
-
-# ---------- Transport layer (node-to-node) ----------
-plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
-plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
-plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
-plugins.security.ssl.transport.enforce_hostname_verification: false
-plugins.security.ssl.transport.clientauth_mode: OPTIONAL
-
-# ---------- HTTP layer (client-to-node) ----------
-plugins.security.ssl.http.enabled: true
-plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
-plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
-plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
-plugins.security.ssl.http.enforce_hostname_verification: false
-plugins.security.ssl.http.clientauth_mode: OPTIONAL
+plugins.security.allow_default_init_securityindex: true
 
 # ---------- Admin DN ----------
 plugins.security.authcz.admin_dn:
@@ -92,9 +79,42 @@ plugins.security.authcz.admin_dn:
   - "{{ dn }}"
 {% endfor %}
 
-# ---------- Security behaviour ----------
-plugins.security.allow_unsafe_democertificates: false
-plugins.security.allow_default_init_securityindex: true
+{% if opensearch_use_tls | bool %}
+
+# ===========================
+# TLS ENABLED (HTTPS)
+# ===========================
+
+# ---------- Transport layer ----------
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.clientauth_mode: OPTIONAL
+
+# ---------- HTTP layer ----------
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
+plugins.security.ssl.http.enforce_hostname_verification: false
+plugins.security.ssl.http.clientauth_mode: OPTIONAL
+
+{% else %}
+
+# ===========================
+# TLS DISABLED (HTTP ONLY)
+# ===========================
+
+plugins.security.ssl.transport.enabled: false
+plugins.security.ssl.http.enabled: false
+
+{% endif %}
+
+# ===========================
+# Security behaviour
+# ===========================
 plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.check_snapshot_restore_write_privileges: true
 
@@ -116,12 +136,6 @@ plugins.security.system_indices.indices:
   - ".opendistro-notifications-*"
   - ".opendistro-notebooks"
   - ".opendistro-asynchronous-search-response*"
-
-{% else %}
-
-plugins.security.disabled: true
-
-{% endif %}
 
 # ===========================
 # Metrics / Monitoring
