@@ -1,9 +1,12 @@
 ---
-# ===========================
-# TLS Certificate Configuration (FIXED – HTTPS ONLY)
-# ===========================
+# ==========================================================
+# TLS Certificate Configuration (VARIABLE-DRIVEN)
+# ==========================================================
 
-- name: Create certificates directory
+# ----------------------------------------------------------
+# Ensure cert directory exists
+# ----------------------------------------------------------
+- name: Ensure OpenSearch certs directory exists
   ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}"
     state: directory
@@ -11,134 +14,70 @@
     group: opensearch
     mode: "0750"
 
-# ===========================
-# Absolute paths
-# ===========================
-- name: Set absolute certificate paths
-  ansible.builtin.set_fact:
-    _os_abs_root_ca: "{{ opensearch_config_dir }}/{{ opensearch_root_ca_path }}"
-    _os_abs_transport_ca: "{{ opensearch_config_dir }}/{{ opensearch_transport_root_ca_path }}"
-    _os_abs_transport_cert: "{{ opensearch_config_dir }}/{{ opensearch_transport_node_cert_path }}"
-    _os_abs_transport_key: "{{ opensearch_config_dir }}/{{ opensearch_transport_node_key_path }}"
-
-# ===========================
-# Copy certificates
-# ===========================
-- name: Copy certificates to OpenSearch certs dir
-  ansible.builtin.copy:
-    src: "{{ item.src }}"
-    dest: "{{ opensearch_certs_dir }}/{{ item.dest }}"
-    owner: opensearch
-    group: opensearch
-    mode: "0600"
-    remote_src: true
+# ----------------------------------------------------------
+# Verify required TLS files exist
+# ----------------------------------------------------------
+- name: Check TLS certificate files
+  ansible.builtin.stat:
+    path: "{{ opensearch_certs_dir }}/{{ item }}"
   loop:
-    - { src: "{{ _os_abs_transport_ca }}",   dest: "transport-root-ca.pem" }
-    - { src: "{{ _os_abs_transport_cert }}", dest: "transport.pem" }
-    - { src: "{{ _os_abs_transport_key }}",  dest: "transport-key.pem" }
-    - { src: "{{ _os_abs_root_ca }}",         dest: "root-ca.pem" }
-    - { src: "{{ opensearch_config_dir }}/{{ opensearch_node_cert_path }}", dest: "node.pem" }
-    - { src: "{{ opensearch_config_dir }}/{{ opensearch_node_key_path }}",  dest: "node-key.pem" }
+    - "{{ opensearch_tls_root_ca_file }}"
+    - "{{ opensearch_tls_cert_file }}"
+    - "{{ opensearch_tls_key_file }}"
+  register: tls_files
 
-# ===========================
-# Admin cert generation (ONLY for securityadmin)
-# ===========================
-- name: Create admin cert directory
+- name: Fail if TLS file missing
+  ansible.builtin.fail:
+    msg: "Missing TLS file: {{ item.item }}"
+  when: not item.stat.exists
+  loop: "{{ tls_files.results }}"
+
+# ----------------------------------------------------------
+# Permission check (fix ONLY if wrong)
+# ----------------------------------------------------------
+- name: Check TLS permissions
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop:
+    - { path: "{{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}", mode: "0644" }
+    - { path: "{{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}",    mode: "0644" }
+    - { path: "{{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}",     mode: "0600" }
+  register: tls_permissions
+
+- name: Fix TLS permissions only if needed
   ansible.builtin.file:
-    path: "{{ opensearch_certs_dir }}/admin-gen"
-    state: directory
+    path: "{{ item.item.path }}"
     owner: opensearch
     group: opensearch
-    mode: "0700"
+    mode: "{{ item.item.mode }}"
+  when: >
+    item.stat.exists and
+    (item.stat.mode | int(base=8)) != (item.item.mode | int(base=8))
+  loop: "{{ tls_permissions.results }}"
 
-- name: Generate admin CA key
-  ansible.builtin.command: >
-    openssl genrsa -out {{ opensearch_certs_dir }}/admin-gen/admin-ca.key 2048
-  args:
-    creates: "{{ opensearch_certs_dir }}/admin-gen/admin-ca.key"
-
-- name: Generate admin CA cert
-  ansible.builtin.command: >
-    openssl req -x509 -new -nodes
-    -key {{ opensearch_certs_dir }}/admin-gen/admin-ca.key
-    -sha256 -days 3650
-    -out {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem
-    -subj "/CN=OpenSearch-Admin-CA"
-  args:
-    creates: "{{ opensearch_certs_dir }}/admin-gen/admin-ca.pem"
-
-- name: Generate admin key
-  ansible.builtin.command: >
-    openssl genrsa -out {{ opensearch_certs_dir }}/admin-gen/admin.key 2048
-  args:
-    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.key"
-
-- name: Generate admin CSR
-  ansible.builtin.command: >
-    openssl req -new
-    -key {{ opensearch_certs_dir }}/admin-gen/admin.key
-    -out {{ opensearch_certs_dir }}/admin-gen/admin.csr
-    -subj "/CN=opensearch-admin"
-  args:
-    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.csr"
-
-- name: Create clientAuth config
-  ansible.builtin.copy:
-    dest: "{{ opensearch_certs_dir }}/admin-gen/client-ext.cnf"
-    content: |
-      extendedKeyUsage = clientAuth
-
-- name: Sign admin certificate
-  ansible.builtin.command: >
-    openssl x509 -req
-    -in {{ opensearch_certs_dir }}/admin-gen/admin.csr
-    -CA {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem
-    -CAkey {{ opensearch_certs_dir }}/admin-gen/admin-ca.key
-    -CAcreateserial
-    -out {{ opensearch_certs_dir }}/admin-gen/admin.pem
-    -days 3650 -sha256
-    -extfile {{ opensearch_certs_dir }}/admin-gen/client-ext.cnf
-  args:
-    creates: "{{ opensearch_certs_dir }}/admin-gen/admin.pem"
-
-# ===========================
-# Build truststore
-# ===========================
-- name: Build root-ca-all.pem
-  ansible.builtin.shell: |
-    cat {{ opensearch_certs_dir }}/root-ca.pem \
-        {{ opensearch_certs_dir }}/transport-root-ca.pem \
-        {{ opensearch_certs_dir }}/admin-gen/admin-ca.pem \
-        > {{ opensearch_certs_dir }}/root-ca-all.pem
-  changed_when: true
-
-- name: Fix permissions
-  ansible.builtin.file:
-    path: "{{ opensearch_certs_dir }}"
-    owner: opensearch
-    group: opensearch
-    recurse: true
-    mode: "0750"
-
-# ===========================
+# ----------------------------------------------------------
 # Restart OpenSearch
-# ===========================
+# ----------------------------------------------------------
 - name: Restart OpenSearch
   ansible.builtin.systemd:
     name: opensearch
     state: restarted
+    daemon_reload: true
 
-- name: Wait for HTTPS port
+# ----------------------------------------------------------
+# Wait for HTTPS
+# ----------------------------------------------------------
+- name: Wait for OpenSearch HTTPS
   ansible.builtin.wait_for:
     host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_http_port }}"
     delay: 10
     timeout: 300
 
-# ===========================
-# Apply security config (HTTPS)
-# ===========================
-- name: Apply security config via securityadmin (HTTPS)
+# ----------------------------------------------------------
+# Apply security config using SAME cert
+# ----------------------------------------------------------
+- name: Apply security config via securityadmin
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}
@@ -146,9 +85,9 @@
     -h {{ opensearch_api_host }}
     -p {{ opensearch_http_port }}
     -https
-    -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
-    -cert {{ opensearch_certs_dir }}/admin-gen/admin.pem
-    -key {{ opensearch_certs_dir }}/admin-gen/admin.key
+    -cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
+    -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
+    -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
   environment:
     OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
     ES_PATH_CONF: "{{ opensearch_config_dir }}"
@@ -156,5 +95,8 @@
 
 - name: Fail if securityadmin failed
   ansible.builtin.fail:
-    msg: "SecurityAdmin failed: {{ security_admin_result.stdout }}"
+    msg: |
+      SecurityAdmin failed
+      STDOUT: {{ security_admin_result.stdout }}
+      STDERR: {{ security_admin_result.stderr }}
   when: security_admin_result.rc != 0
