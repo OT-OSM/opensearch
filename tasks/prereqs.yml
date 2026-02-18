@@ -21,17 +21,6 @@
   when: ansible_os_family == 'RedHat'
 
 # ===========================
-# DNS / Hostname
-# ===========================
-- name: Configure OpenSearch DNS in /etc/hosts
-  become: true
-  ansible.builtin.blockinfile:
-    path: /etc/hosts
-    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ inventory_hostname }}"
-    block: |
-      {{ ansible_default_ipv4.address }} {{ inventory_hostname }}.{{ opensearch_domain_name }} {{ inventory_hostname }}
-
-# ===========================
 # Kernel Tuning
 # ===========================
 - name: Set vm.max_map_count
