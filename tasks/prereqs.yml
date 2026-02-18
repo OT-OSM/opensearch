@@ -4,20 +4,26 @@
 # ===========================
 
 - name: Install Java (Debian/Ubuntu)
-  become: true
   ansible.builtin.apt:
     name: "{{ opensearch_java_package }}"
     state: present
-    update_cache: false
-    lock_timeout: 300
+    update_cache: true
+  register: java_install_deb
+  until: java_install_deb is succeeded
+  retries: 5
+  delay: 30
   when: ansible_os_family == 'Debian'
 
 - name: Install Java (RedHat/Amazon)
-  become: true
   ansible.builtin.package:
     name: "{{ opensearch_java_package }}"
     state: present
+  register: java_install_rh
+  until: java_install_rh is succeeded
+  retries: 5
+  delay: 30
   when: ansible_os_family == 'RedHat'
+
 
 # ===========================
 # DNS / Hostname
