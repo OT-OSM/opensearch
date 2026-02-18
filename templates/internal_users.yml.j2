@@ -2,16 +2,14 @@ _meta:
   type: "internalusers"
   config_version: 2
 
-# Define the admin user
 {{ opensearch_admin_username }}:
-  hash: "{{ opensearch_admin_password_hash }}"
+  hash: "{{ opensearch_admin_password | password_hash('bcrypt') }}"
   reserved: true
   backend_roles:
-  - "admin"
+    - admin
   description: "Admin user"
 
-# Keep kibanaserver user for Dashboards internal use
 kibanaserver:
-  hash: "{{ opensearch_kibanaserver_password_hash }}"
+  hash: "{{ opensearch_kibanaserver_password | password_hash('bcrypt') }}"
   reserved: true
   description: "Dashboards internal user"
