@@ -267,7 +267,7 @@
 
 - name: Wait for OpenSearch transport port (9300)
   ansible.builtin.wait_for:
-    host: {{ opensearch_api_host }}
+    host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_transport_port }}"
     delay: 10
     timeout: 300
