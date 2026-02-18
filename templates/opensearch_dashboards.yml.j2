@@ -10,14 +10,23 @@ server.host: "{{ opensearch_dashboards_host }}"
 # OpenSearch Connection
 # ===========================
 {% if opensearch_use_tls | bool %}
-opensearch.hosts: ["https://{{ opensearch_dashboards_opensearch_host }}"]
+opensearch.hosts:
+  - "https://{{ opensearch_dashboards_opensearch_host }}"
 opensearch.ssl.verificationMode: none
 {% else %}
-opensearch.hosts: ["http://{{ opensearch_dashboards_opensearch_host }}"]
+opensearch.hosts:
+  - "http://{{ opensearch_dashboards_opensearch_host }}"
 {% endif %}
 
 # ===========================
-# Security (ALWAYS ENABLED)
+# BACKEND SERVICE AUTH
+# ===========================
+# Dashboards -> OpenSearch internal auth
+opensearch.username: "{{ opensearch_kibanaserver_username }}"
+opensearch.password: "{{ opensearch_kibanaserver_password }}"
+
+# ===========================
+# UI Security (Login Page)
 # ===========================
 opensearch_security.enabled: true
 opensearch_security.auth.type: "basicauth"
