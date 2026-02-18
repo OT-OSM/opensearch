@@ -28,18 +28,27 @@
 # ===========================
 - name: Configure OpenSearch DNS in /etc/hosts
   ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
     block: |
-      {% set host_ip = hostvars[item]['private_ip'] | default(hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host'] | default(''))) %}
+      {% set host_ip = hostvars[item]['private_ip']
+           | default(hostvars[item]['ansible_default_ipv4']['address']
+           | default(hostvars[item]['ansible_host'] | default(''))) %}
       {% if host_ip %}
       {{ host_ip }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
       {% endif %}
-    path: /etc/hosts
-    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
   become: true
-  loop: "{{ groups['opensearch'] | default([]) }}"
+  loop: "{{ ansible_play_hosts }}"
+
+# ===========================
+# Cluster Connectivity Check (ONLY when cluster enabled)
+# ===========================
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
-    host: "{{ hostvars[item]['private_ip'] | default(hostvars[item]['ansible_host'] | default(hostvars[item]['ansible_ssh_host'] | default(item))) }}"
+    host: "{{ hostvars[item]['private_ip']
+              | default(hostvars[item]['ansible_host']
+              | default(hostvars[item]['ansible_ssh_host']
+              | default(item))) }}"
     port: 9300
     timeout: 5
     state: started
@@ -60,12 +69,15 @@
     - item.failed | default(false)
   tags: [diagnostic]
 
+# ===========================
+# Hostname Configuration
+# ===========================
 - name: Check if /etc/hostname is writable
   ansible.builtin.stat:
     path: /etc/hostname
   register: hostname_file_stat
 
-- name: Set hostname for OpenSearch nodes
+- name: Set hostname for OpenSearch node
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
   become: true
@@ -102,7 +114,7 @@
   become: true
 
 # ===========================
-# Data Purge (For Fresh Install/Downgrade)
+# Data Purge (Fresh Install / Downgrade)
 # ===========================
 - name: Stop OpenSearch before purging data
   ansible.builtin.systemd:
