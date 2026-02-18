@@ -310,14 +310,22 @@
     group: opensearch
     mode: "0640"
 
-- name: Apply security configuration (securityadmin.sh via HTTPS/9200)
+- name: Set securityadmin protocol flags
+  ansible.builtin.set_fact:
+    _securityadmin_protocol_flag: "{{ '-https' if opensearch_use_tls else '' }}"
+    _securityadmin_ca_flag: >-
+      {{ '-cacert ' ~ opensearch_certs_dir ~ '/root-ca-all.pem'
+         if opensearch_use_tls else '' }}    
+
+- name: Apply security configuration (securityadmin.sh)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
     -h {{ opensearch_api_host }}
-    -p 9200
-    -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
+    -p {{ opensearch_http_port }}
+    {{ _securityadmin_protocol_flag }}
+    {{ _securityadmin_ca_flag }}
     -cert {{ opensearch_certs_dir }}/admin-gen/admin.pem
     -key {{ opensearch_certs_dir }}/admin-gen/admin.key
   environment:
@@ -325,7 +333,6 @@
     OPENSEARCH_HOME: "/usr/share/opensearch"
     OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
     ES_PATH_CONF: "{{ opensearch_config_dir }}"
-    OPENSEARCH_JAVA_OPTS: "-Dopensearch.path.conf={{ opensearch_config_dir }} -Dplugins.security.ssl.http.enabled=true -Dplugins.security.ssl.transport.enabled=true"
   register: security_admin_result
   ignore_errors: true
 
