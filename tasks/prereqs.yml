@@ -2,25 +2,19 @@
 # ===========================
 # Java Installation
 # ===========================
+
 - name: Install Java (Debian/Ubuntu)
   ansible.builtin.apt:
     name: "{{ opensearch_java_package }}"
     state: present
-    update_cache: true
-  register: java_install_deb
-  until: java_install_deb is succeeded
-  retries: 5
-  delay: 30
+    update_cache: false
+    cache_valid_time: 3600
   when: ansible_os_family == 'Debian'
 
 - name: Install Java (RedHat/Amazon)
   ansible.builtin.package:
     name: "{{ opensearch_java_package }}"
     state: present
-  register: java_install_rh
-  until: java_install_rh is succeeded
-  retries: 5
-  delay: 30
   when: ansible_os_family == 'RedHat'
 
 # ===========================
@@ -29,26 +23,17 @@
 - name: Configure OpenSearch DNS in /etc/hosts
   ansible.builtin.blockinfile:
     path: /etc/hosts
-    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ inventory_hostname }}"
     block: |
-      {% set host_ip = hostvars[item]['private_ip']
-           | default(hostvars[item]['ansible_default_ipv4']['address']
-           | default(hostvars[item]['ansible_host'] | default(''))) %}
-      {% if host_ip %}
-      {{ host_ip }} {{ item }}.{{ opensearch_domain_name }} {{ item }}
-      {% endif %}
+      {{ ansible_default_ipv4.address }} {{ inventory_hostname }}.{{ opensearch_domain_name }} {{ inventory_hostname }}
   become: true
-  loop: "{{ ansible_play_hosts }}"
 
 # ===========================
 # Cluster Connectivity Check (ONLY when cluster enabled)
 # ===========================
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
-    host: "{{ hostvars[item]['private_ip']
-              | default(hostvars[item]['ansible_host']
-              | default(hostvars[item]['ansible_ssh_host']
-              | default(item))) }}"
+    host: "{{ hostvars[item]['ansible_default_ipv4']['address'] | default(item) }}"
     port: 9300
     timeout: 5
     state: started
