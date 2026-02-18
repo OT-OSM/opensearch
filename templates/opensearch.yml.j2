@@ -1,6 +1,5 @@
 # ===========================
 # OpenSearch Configuration
-# Managed by Ansible
 # ===========================
 
 {% set is_cluster = (opensearch_enable_cluster_mode | bool) and
@@ -66,22 +65,21 @@ cluster.routing.allocation.disk.threshold_enabled: true
 cluster.info.update.interval: 30s
 
 # ===========================
-# Security (HTTP + HTTPS SAFE)
+# Security (TLS AWARE)
 # ===========================
+
+{% if opensearch_use_tls | bool %}
+
+# -------------------------------------------------
+# SECURITY ENABLED
+# -------------------------------------------------
 plugins.security.disabled: false
 plugins.security.allow_default_init_securityindex: true
 
-# ---------- Admin DN ----------
 plugins.security.authcz.admin_dn:
 {% for dn in opensearch_admin_dn %}
   - "{{ dn }}"
 {% endfor %}
-
-{% if opensearch_use_tls | bool %}
-
-# ===========================
-# TLS ENABLED (HTTPS)
-# ===========================
 
 # ---------- Transport layer ----------
 plugins.security.ssl.transport.enabled: true
@@ -99,20 +97,7 @@ plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_c
 plugins.security.ssl.http.enforce_hostname_verification: false
 plugins.security.ssl.http.clientauth_mode: OPTIONAL
 
-{% else %}
-
-# ===========================
-# TLS DISABLED (HTTP ONLY)
-# ===========================
-
-plugins.security.ssl.transport.enabled: false
-plugins.security.ssl.http.enabled: false
-
-{% endif %}
-
-# ===========================
-# Security behaviour
-# ===========================
+# ---------- Security behaviour ----------
 plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.check_snapshot_restore_write_privileges: true
 
@@ -134,6 +119,15 @@ plugins.security.system_indices.indices:
   - ".opendistro-notifications-*"
   - ".opendistro-notebooks"
   - ".opendistro-asynchronous-search-response*"
+
+{% else %}
+
+# -------------------------------------------------
+# SECURITY DISABLED (HTTP ONLY MODE)
+# -------------------------------------------------
+plugins.security.disabled: true
+
+{% endif %}
 
 # ===========================
 # Metrics / Monitoring
