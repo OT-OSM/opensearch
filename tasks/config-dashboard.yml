@@ -73,3 +73,20 @@
     state: started
     enabled: true
     daemon_reload: true
+
+# ===========================
+# Dashboards Verification
+# ===========================
+- name: Verify OpenSearch Dashboards login page reachable
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ opensearch_dashboards_port }}"
+    method: GET
+    status_code:
+      - 200
+      - 302
+    timeout: 5
+  register: dashboards_check
+
+- name: Display Dashboards verification result
+  ansible.builtin.debug:
+    msg: "Dashboards reachable, HTTP {{ dashboards_check.status }}"
