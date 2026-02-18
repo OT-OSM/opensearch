@@ -3,7 +3,10 @@
 # Managed by Ansible
 # ===========================
 
-{% set is_cluster = (opensearch_enable_cluster_mode | bool) and ((opensearch_discovery_seed_hosts | length > 0) or (opensearch_initial_master_nodes | length > 0) or (groups['opensearch'] | default([]) | length > 1)) %}
+{% set is_cluster = (opensearch_enable_cluster_mode | bool) and
+   ((opensearch_discovery_seed_hosts | length > 0) or
+    (opensearch_initial_master_nodes | length > 0) or
+    (groups['opensearch'] | default([]) | length > 1)) %}
 
 # ===========================
 # Cluster / Node
@@ -30,28 +33,14 @@ transport.port: {{ opensearch_transport_port }}
 # ===========================
 {% if is_cluster %}
 discovery.seed_hosts:
-{% if opensearch_discovery_seed_hosts | length > 0 %}
-{% for host in opensearch_discovery_seed_hosts %}
-  - {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_host']) | default(host) }}
-{% endfor %}
-{% else %}
 {% for host in groups['opensearch'] %}
-  - {{ hostvars[host]['private_ip'] | default(hostvars[host]['ansible_default_ipv4']['address']) | default(hostvars[host]['ansible_host']) | default(host) }}
+  - {{ hostvars[host]['ansible_default_ipv4']['address'] | default(host) }}
 {% endfor %}
-{% endif %}
 
-{% if opensearch_bootstrap_cluster | bool or (opensearch_initial_master_nodes | length > 0) %}
 cluster.initial_master_nodes:
-{% if opensearch_initial_master_nodes | length > 0 %}
-{% for node in opensearch_initial_master_nodes %}
-  - {{ node }}
-{% endfor %}
-{% else %}
 {% for host in groups['opensearch'] %}
   - {{ host }}
 {% endfor %}
-{% endif %}
-{% endif %}
 {% else %}
 discovery.type: single-node
 {% endif %}
@@ -76,33 +65,32 @@ cluster.routing.allocation.disk.threshold_enabled: true
 cluster.info.update.interval: 30s
 
 # ===========================
-# Security (TLS / Auth)
+# Security (TLS / HTTPS)
 # ===========================
 {% if opensearch_use_tls | bool %}
 
 plugins.security.disabled: false
 
-# -------- Transport layer (node-to-node) --------
-plugins.security.ssl.transport.pemcert_filepath: "certs/transport.pem"
-plugins.security.ssl.transport.pemkey_filepath: "certs/transport-key.pem"
-plugins.security.ssl.transport.pemtrustedcas_filepath: "certs/root-ca-all.pem"
+# ---------- Transport layer (node-to-node) ----------
+plugins.security.ssl.transport.pemcert_filepath: certs/transport.pem
+plugins.security.ssl.transport.pemkey_filepath: certs/transport-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca-all.pem
 plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.clientauth_mode: OPTIONAL
 
-# -------- HTTP layer (client-to-node) --------
+# ---------- HTTP layer (client-to-node) ----------
 plugins.security.ssl.http.enabled: true
-plugins.security.ssl.http.pemcert_filepath: "certs/node.pem"
-plugins.security.ssl.http.pemkey_filepath: "certs/node-key.pem"
-plugins.security.ssl.http.pemtrustedcas_filepath: "certs/root-ca-all.pem"
+plugins.security.ssl.http.pemcert_filepath: certs/node.pem
+plugins.security.ssl.http.pemkey_filepath: certs/node-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca-all.pem
+plugins.security.ssl.http.enforce_hostname_verification: false
+plugins.security.ssl.http.clientauth_mode: OPTIONAL
 
-# -------- Admin DN (MUST match admin-gen cert) --------
+# ---------- Admin DN (MUST match admin-gen cert) ----------
 plugins.security.authcz.admin_dn:
   - "CN=opensearch-admin"
 
-# -------- Node DN (FIXED to avoid SSL mismatch) --------
-plugins.security.nodes_dn:
-  - "CN=*"
-
-# -------- Security behaviour --------
+# ---------- Security behaviour ----------
 plugins.security.allow_unsafe_democertificates: true
 plugins.security.allow_default_init_securityindex: true
 plugins.security.enable_snapshot_restore_privilege: true
@@ -130,31 +118,6 @@ plugins.security.system_indices.indices:
 {% else %}
 
 plugins.security.disabled: true
-
-{% endif %}
-
-# ===========================
-# SSO Configuration
-# ===========================
-{% if opensearch_enable_sso | bool and opensearch_use_tls | bool %}
-
-{% if opensearch_auth_type == 'openid' %}
-plugins.security.auth.type: "openid"
-plugins.security.openid.connect_url: "{{ opensearch_openid_connect_url }}"
-plugins.security.openid.client_id: "{{ opensearch_openid_client_id }}"
-plugins.security.openid.client_secret: "{{ opensearch_openid_client_secret }}"
-plugins.security.openid.scope: "{{ opensearch_openid_scope }}"
-{% if opensearch_openid_base_redirect_url %}
-plugins.security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_url }}"
-{% endif %}
-{% endif %}
-
-{% if opensearch_auth_type == 'saml' %}
-plugins.security.auth.type: "saml"
-plugins.security.saml.idp.metadata_url: "{{ opensearch_saml_idp_metadata_url }}"
-plugins.security.saml.sp.entity_id: "{{ opensearch_saml_entity_id }}"
-plugins.security.saml.exchange_key: "{{ opensearch_saml_exchange_key }}"
-{% endif %}
 
 {% endif %}
 
