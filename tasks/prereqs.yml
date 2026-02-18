@@ -2,27 +2,57 @@
 # ===========================
 # Java Installation
 # ===========================
+---
+# ===========================
+# Java Installation (Semaphore SAFE)
+# ===========================
 
-- name: Install Java (Debian/Ubuntu)
-  ansible.builtin.apt:
-    name: "{{ opensearch_java_package }}"
-    state: present
-    update_cache: true
-  register: java_install_deb
-  until: java_install_deb is succeeded
-  retries: 5
-  delay: 30
+- name: Install Java (Debian/Ubuntu) - non interactive
+  become: true
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y {{ opensearch_java_package }}
+  args:
+    executable: /bin/bash
   when: ansible_os_family == 'Debian'
 
 - name: Install Java (RedHat/Amazon)
+  become: true
   ansible.builtin.package:
     name: "{{ opensearch_java_package }}"
     state: present
-  register: java_install_rh
-  until: java_install_rh is succeeded
-  retries: 5
-  delay: 30
   when: ansible_os_family == 'RedHat'
+
+# ===========================
+# DNS / Hostname
+# ===========================
+- name: Configure OpenSearch DNS in /etc/hosts
+  become: true
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ inventory_hostname }}"
+    block: |
+      {{ ansible_default_ipv4.address }} {{ inventory_hostname }}.{{ opensearch_domain_name }} {{ inventory_hostname }}
+
+# ===========================
+# Kernel Tuning
+# ===========================
+- name: Set vm.max_map_count
+  become: true
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ opensearch_vm_max_map_count }}"
+    state: present
+    reload: true
+
+- name: Disable swap (if configured)
+  become: true
+  ansible.builtin.command: swapoff -a
+  when:
+    - ansible_swaptotal_mb | default(0) > 0
+    - opensearch_disable_swap | bool
+  changed_when: false
 
 
 # ===========================
