@@ -71,7 +71,7 @@
     port: 9300
     timeout: 5
     state: started
-  loop: "{{ groups['opensearch'] | default([]) }}"
+  loop: "{{ ansible_play_hosts }}"
   when:
     - opensearch_enable_cluster_mode | bool
     - groups['opensearch'] | length > 1
