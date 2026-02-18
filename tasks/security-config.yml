@@ -136,13 +136,13 @@
     timeout: 300
 
 # ===========================
-# Apply security config (FORCE HTTPS)
+# Apply security config (HTTPS)
 # ===========================
 - name: Apply security config via securityadmin (HTTPS)
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}
-    -icl -nhnv
+    -nhnv
     -h {{ opensearch_api_host }}
     -p {{ opensearch_http_port }}
     -https
