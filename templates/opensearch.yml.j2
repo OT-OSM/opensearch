@@ -72,26 +72,28 @@ cluster.info.update.interval: 30s
 plugins.security.disabled: false
 
 # ---------- Transport layer (node-to-node) ----------
-plugins.security.ssl.transport.pemcert_filepath: certs/transport.pem
-plugins.security.ssl.transport.pemkey_filepath: certs/transport-key.pem
-plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca-all.pem
+plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.transport.enforce_hostname_verification: false
 plugins.security.ssl.transport.clientauth_mode: OPTIONAL
 
 # ---------- HTTP layer (client-to-node) ----------
 plugins.security.ssl.http.enabled: true
-plugins.security.ssl.http.pemcert_filepath: certs/node.pem
-plugins.security.ssl.http.pemkey_filepath: certs/node-key.pem
-plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca-all.pem
+plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
+plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.http.enforce_hostname_verification: false
 plugins.security.ssl.http.clientauth_mode: OPTIONAL
 
-# ---------- Admin DN (MUST match admin-gen cert) ----------
+# ---------- Admin DN ----------
 plugins.security.authcz.admin_dn:
-  - "CN=opensearch-admin"
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
 # ---------- Security behaviour ----------
-plugins.security.allow_unsafe_democertificates: true
+plugins.security.allow_unsafe_democertificates: false
 plugins.security.allow_default_init_securityindex: true
 plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.check_snapshot_restore_write_privileges: true
