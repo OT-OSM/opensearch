@@ -76,11 +76,6 @@ cluster.info.update.interval: 30s
 plugins.security.disabled: false
 plugins.security.allow_default_init_securityindex: true
 
-plugins.security.authcz.admin_dn:
-{% for dn in opensearch_admin_dn %}
-  - "{{ dn }}"
-{% endfor %}
-
 # ---------- Transport layer ----------
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
@@ -95,7 +90,6 @@ plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.http.enforce_hostname_verification: false
-plugins.security.ssl.http.clientauth_mode: OPTIONAL
 
 # ---------- Security behaviour ----------
 plugins.security.enable_snapshot_restore_privilege: true
