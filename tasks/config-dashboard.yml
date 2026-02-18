@@ -77,16 +77,25 @@
 # ===========================
 # Dashboards Verification
 # ===========================
+
+- name: Set Dashboards protocol
+  ansible.builtin.set_fact:
+    dashboards_protocol: "{{ 'https' if opensearch_use_tls | bool else 'http' }}"
+
 - name: Verify OpenSearch Dashboards login page reachable
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ opensearch_dashboards_port }}"
+    url: "{{ dashboards_protocol }}://{{ opensearch_api_host }}:{{ opensearch_dashboards_port }}"
     method: GET
     status_code:
       - 200
       - 302
     timeout: 5
+    validate_certs: false
   register: dashboards_check
 
 - name: Display Dashboards verification result
   ansible.builtin.debug:
-    msg: "Dashboards reachable, HTTP {{ dashboards_check.status }}"
+    msg: >
+      Dashboards reachable at
+      {{ dashboards_protocol }}://{{ opensearch_api_host }}:{{ opensearch_dashboards_port }}
+      (HTTP {{ dashboards_check.status }})
