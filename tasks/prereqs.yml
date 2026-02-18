@@ -4,14 +4,16 @@
 # ===========================
 
 - name: Install Java (Debian/Ubuntu)
+  become: true
   ansible.builtin.apt:
     name: "{{ opensearch_java_package }}"
     state: present
     update_cache: false
-    cache_valid_time: 3600
+    lock_timeout: 300
   when: ansible_os_family == 'Debian'
 
 - name: Install Java (RedHat/Amazon)
+  become: true
   ansible.builtin.package:
     name: "{{ opensearch_java_package }}"
     state: present
@@ -21,15 +23,15 @@
 # DNS / Hostname
 # ===========================
 - name: Configure OpenSearch DNS in /etc/hosts
+  become: true
   ansible.builtin.blockinfile:
     path: /etc/hosts
     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ inventory_hostname }}"
     block: |
       {{ ansible_default_ipv4.address }} {{ inventory_hostname }}.{{ opensearch_domain_name }} {{ inventory_hostname }}
-  become: true
 
 # ===========================
-# Cluster Connectivity Check (ONLY when cluster enabled)
+# Cluster Connectivity Check
 # ===========================
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
@@ -43,65 +45,49 @@
     - groups['opensearch'] | length > 1
     - item != inventory_hostname
   ignore_errors: true
-  register: connectivity_check
-  tags: [diagnostic]
-
-- name: Warn about potential network isolation
-  ansible.builtin.debug:
-    msg: "WARNING: Node {{ inventory_hostname }} cannot reach {{ item.item }} on port 9300. Cluster formation might fail."
-  loop: "{{ connectivity_check.results | default([]) }}"
-  when:
-    - item.failed | default(false)
-  tags: [diagnostic]
 
 # ===========================
 # Hostname Configuration
 # ===========================
-- name: Check if /etc/hostname is writable
-  ansible.builtin.stat:
-    path: /etc/hostname
-  register: hostname_file_stat
-
 - name: Set hostname for OpenSearch node
+  become: true
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
-  become: true
-  when:
-    - opensearch_configure_hostname | bool
-    - hostname_file_stat.stat.writeable | default(false)
+  when: opensearch_configure_hostname | bool
   failed_when: false
 
 # ===========================
 # Kernel Tuning
 # ===========================
 - name: Set vm.max_map_count
+  become: true
   ansible.posix.sysctl:
     name: vm.max_map_count
     value: "{{ opensearch_vm_max_map_count }}"
     state: present
     reload: true
-  become: true
 
 - name: Set fs.file-max
+  become: true
   ansible.posix.sysctl:
     name: fs.file-max
     value: "{{ opensearch_systemd_limit_nofile }}"
     state: present
     reload: true
-  become: true
 
 - name: Disable swap (if configured)
+  become: true
   ansible.builtin.command: swapoff -a
   when:
     - ansible_swaptotal_mb | default(0) > 0
     - opensearch_disable_swap | bool
   changed_when: false
-  become: true
 
 # ===========================
-# Data Purge (Fresh Install / Downgrade)
+# Data Purge (Fresh Install)
 # ===========================
 - name: Stop OpenSearch before purging data
+  become: true
   ansible.builtin.systemd:
     name: opensearch
     state: stopped
@@ -110,6 +96,7 @@
   failed_when: false
 
 - name: Purge OpenSearch data directory
+  become: true
   ansible.builtin.file:
     path: "{{ opensearch_data_path }}"
     state: absent
