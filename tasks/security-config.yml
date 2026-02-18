@@ -58,12 +58,16 @@
 # ----------------------------------------------------------
 # Wait for OpenSearch HTTPS (service already running)
 # ----------------------------------------------------------
-- name: Wait for OpenSearch HTTPS
-  ansible.builtin.wait_for:
-    host: "{{ opensearch_api_host }}"
-    port: "{{ opensearch_http_port }}"
-    delay: 10
-    timeout: 300
+- name: Wait for OpenSearch HTTPS (TLS)
+  ansible.builtin.command: >
+    curl -k
+    --cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
+    https://{{ opensearch_api_host }}:{{ opensearch_http_port }}
+  register: opensearch_https_check
+  retries: 30
+  delay: 10
+  until: opensearch_https_check.rc == 0
+  when: opensearch_use_tls | bool
 
 # ----------------------------------------------------------
 # Apply security config certs
