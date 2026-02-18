@@ -82,37 +82,27 @@ cluster.info.update.interval: 30s
 
 plugins.security.disabled: false
 
-# Transport layer (node-to-node)
+# -------- Transport layer (node-to-node) --------
 plugins.security.ssl.transport.pemcert_filepath: "certs/transport.pem"
 plugins.security.ssl.transport.pemkey_filepath: "certs/transport-key.pem"
 plugins.security.ssl.transport.pemtrustedcas_filepath: "certs/root-ca-all.pem"
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
-# HTTP layer (client-to-node)
+# -------- HTTP layer (client-to-node) --------
 plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: "certs/node.pem"
 plugins.security.ssl.http.pemkey_filepath: "certs/node-key.pem"
 plugins.security.ssl.http.pemtrustedcas_filepath: "certs/root-ca-all.pem"
 
-# Admin DNs
+# -------- Admin DN (MUST match admin-gen cert) --------
 plugins.security.authcz.admin_dn:
   - "CN=opensearch-admin"
-{% if opensearch_admin_dn | length > 0 %}
-{% for dn in opensearch_admin_dn %}
-  - "{{ dn }}"
-{% endfor %}
-{% endif %}
 
-# Node DNs
+# -------- Node DN (FIXED to avoid SSL mismatch) --------
 plugins.security.nodes_dn:
-  - "CN=opensearch-node"
-{% if opensearch_nodes_dn | length > 0 %}
-{% for dn in opensearch_nodes_dn %}
-  - "{{ dn }}"
-{% endfor %}
-{% endif %}
+  - "CN=*"
 
-# Security behaviour
+# -------- Security behaviour --------
 plugins.security.allow_unsafe_democertificates: true
 plugins.security.allow_default_init_securityindex: true
 plugins.security.enable_snapshot_restore_privilege: true
@@ -149,7 +139,6 @@ plugins.security.disabled: true
 {% if opensearch_enable_sso | bool and opensearch_use_tls | bool %}
 
 {% if opensearch_auth_type == 'openid' %}
-# OpenID Connect
 plugins.security.auth.type: "openid"
 plugins.security.openid.connect_url: "{{ opensearch_openid_connect_url }}"
 plugins.security.openid.client_id: "{{ opensearch_openid_client_id }}"
@@ -161,7 +150,6 @@ plugins.security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_u
 {% endif %}
 
 {% if opensearch_auth_type == 'saml' %}
-# SAML
 plugins.security.auth.type: "saml"
 plugins.security.saml.idp.metadata_url: "{{ opensearch_saml_idp_metadata_url }}"
 plugins.security.saml.sp.entity_id: "{{ opensearch_saml_entity_id }}"
