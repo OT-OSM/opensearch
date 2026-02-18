@@ -213,9 +213,6 @@
 # ===========================
 # 5. Assemble Combined Truststore (Admin mTLS Fix)
 # ===========================
-# ===========================
-# 5. Assemble Combined Truststore (Admin mTLS Fix)
-# ===========================
 - name: Assemble combined truststore (root-ca-all.pem)
   ansible.builtin.shell: |
     cat {{ opensearch_certs_dir }}/root-ca.pem > {{ opensearch_certs_dir }}/root-ca-all.pem
@@ -270,7 +267,7 @@
 
 - name: Wait for OpenSearch transport port (9300)
   ansible.builtin.wait_for:
-    host: 127.0.0.1
+    host: {{ opensearch_api_host }}
     port: "{{ opensearch_transport_port }}"
     delay: 10
     timeout: 300
@@ -318,7 +315,7 @@
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}/
     -icl -nhnv
-    -h 127.0.0.1
+    -h {{ opensearch_api_host }}
     -p 9200
     -cacert {{ opensearch_certs_dir }}/root-ca-all.pem
     -cert {{ opensearch_certs_dir }}/admin-gen/admin.pem
@@ -357,7 +354,7 @@
 - name: Final wait for OpenSearch service
   ansible.builtin.wait_for:
     port: "{{ opensearch_http_port }}"
-    host: 127.0.0.1
+    host: "{{ opensearch_api_host }}"
     delay: 10
     timeout: 150
 
