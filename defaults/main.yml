@@ -81,7 +81,7 @@ opensearch_number_of_replicas: 0
 # ===========================
 # When true: HTTPS (Port 9200) + Transport TLS (Port 9300)
 # When false: HTTP (Port 9200) + No Transport TLS (or internal only)
-opensearch_use_tls: false
+opensearch_use_tls: true
 
 # Source paths for certificates (Relative to OpenSearch config directory or Absolute)
 # NOTE: When opensearch_use_tls is true, YOU MUST PROVIDE THESE FILES.
