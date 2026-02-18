@@ -74,6 +74,7 @@
   ansible.builtin.command: >
     {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
     -cd {{ opensearch_security_config_dir }}
+    -icl
     -nhnv
     -h {{ opensearch_api_host }}
     -p {{ opensearch_http_port }}
@@ -81,11 +82,6 @@
     -cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
     -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
     -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
-  environment:
-    OPENSEARCH_PATH_CONF: "{{ opensearch_config_dir }}"
-    ES_PATH_CONF: "{{ opensearch_config_dir }}"
-  register: security_admin_result
-  notify: Restart OpenSearch
 
 - name: Fail if securityadmin failed
   ansible.builtin.fail:
