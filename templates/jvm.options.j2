@@ -1,18 +1,12 @@
 ################################################################
 ## JVM Heap Configuration
 ################################################################
--Xms{{ (ansible_memtotal_mb // 4) }}m
--Xmx{{ (ansible_memtotal_mb // 4) }}m
+-Xms{{ opensearch_jvm_heap_size }}
+-Xmx{{ opensearch_jvm_heap_size }}
 
 ################################################################
 ## Expert settings
 ################################################################
-##
-## All settings below this section are considered
-## expert settings. Don't tamper with them unless
-## you understand what you are doing
-##
-
 ## GC configuration
 8-13:-XX:+UseConcMarkSweepGC
 8-13:-XX:CMSInitiatingOccupancyFraction=75
