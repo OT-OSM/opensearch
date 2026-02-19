@@ -1,8 +1,8 @@
 ################################################################
 ## JVM Heap Configuration
 ################################################################
--Xms{{ opensearch_jvm_heap_size }}
--Xmx{{ opensearch_jvm_heap_size }}
+-Xms{{ (ansible_memtotal_mb // 4) }}m
+-Xmx{{ (ansible_memtotal_mb // 4) }}m
 
 ################################################################
 ## Expert settings
