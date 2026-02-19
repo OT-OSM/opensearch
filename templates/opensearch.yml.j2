@@ -2,48 +2,23 @@
 # OpenSearch Configuration
 # ===========================
 
-{% set is_cluster = (opensearch_enable_cluster_mode | bool) and
-   ((opensearch_discovery_seed_hosts | length > 0) or
-    (opensearch_initial_master_nodes | length > 0) or
-    (groups['opensearch'] | default([]) | length > 1)) %}
-
-# ===========================
-# Cluster / Node
-# ===========================
-{% if is_cluster %}
-cluster.name: {{ opensearch_cluster_name }}
-{% else %}
 cluster.name: {{ opensearch_cluster_name }}-standalone
-{% endif %}
-
 node.name: {{ opensearch_node_name }}
 
 path.data: {{ opensearch_data_path }}
 path.logs: {{ opensearch_logs_path }}
 
 # ===========================
-# Network & Connectivity
+# Network
 # ===========================
 network.host: {{ opensearch_network_host }}
 http.port: {{ opensearch_http_port }}
 transport.port: {{ opensearch_transport_port }}
 
 # ===========================
-# Discovery
+# Single Node
 # ===========================
-{% if is_cluster %}
-discovery.seed_hosts:
-{% for host in groups['opensearch'] %}
-  - {{ hostvars[host]['ansible_default_ipv4']['address'] | default(host) }}
-{% endfor %}
-
-cluster.initial_master_nodes:
-{% for host in groups['opensearch'] %}
-  - {{ host }}
-{% endfor %}
-{% else %}
 discovery.type: single-node
-{% endif %}
 
 # ===========================
 # Node Roles
@@ -54,76 +29,32 @@ node.roles:
 {% endfor %}
 
 # ===========================
-# Memory / Bootstrap
+# Bootstrap
 # ===========================
-bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | default(false) }}
+bootstrap.memory_lock: false
 
 # ===========================
-# Performance
-# ===========================
-cluster.routing.allocation.disk.threshold_enabled: true
-cluster.info.update.interval: 30s
-
-# ===========================
-# Security (TLS AWARE)
+# TLS Security
 # ===========================
 
-{% if opensearch_use_tls | bool %}
-
-# -------------------------------------------------
-# SECURITY ENABLED
-# -------------------------------------------------
 plugins.security.disabled: false
 plugins.security.allow_default_init_securityindex: true
 
-# ---------- Transport layer ----------
+# ---------- Transport TLS ----------
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
-# ---------- HTTP layer ----------
+# ---------- HTTP TLS ----------
 plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
-plugins.security.ssl.http.clientauth_mode: OPTIONAL
-
-# ---------- Security behaviour ----------
-plugins.security.enable_snapshot_restore_privilege: true
-plugins.security.check_snapshot_restore_write_privileges: true
-
-plugins.security.restapi.roles_enabled:
-  - all_access
-  - security_rest_api_access
-
-plugins.security.audit.type: internal_opensearch
-
-plugins.security.system_indices.enabled: true
-plugins.security.system_indices.indices:
-  - ".opendistro-alerting-config"
-  - ".opendistro-alerting-alert*"
-  - ".opendistro-anomaly-results*"
-  - ".opendistro-anomaly-detector*"
-  - ".opendistro-anomaly-checkpoints"
-  - ".opendistro-anomaly-detection-state"
-  - ".opendistro-reports-*"
-  - ".opendistro-notifications-*"
-  - ".opendistro-notebooks"
-  - ".opendistro-asynchronous-search-response*"
-
-{% else %}
-
-# -------------------------------------------------
-# SECURITY DISABLED (HTTP ONLY MODE)
-# -------------------------------------------------
-plugins.security.disabled: true
-
-{% endif %}
 
 # ===========================
-# Metrics / Monitoring
+# Monitoring
 # ===========================
 {% if opensearch_metrics_enabled | bool %}
 opensearch.experimental.feature.telemetry.enabled: true
