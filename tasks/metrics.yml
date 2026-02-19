@@ -2,19 +2,21 @@
 # ===========================
 # Metrics & Monitoring
 # ===========================
-# Only runs when opensearch_metrics_enabled is true
 
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
     _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
+# ===========================
+# Wait for OpenSearch Ready
+# ===========================
 - name: Wait for OpenSearch to be ready for metrics config
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/"
     method: GET
-    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
-    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
-    force_basic_auth: "{{ opensearch_use_tls }}"
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
     validate_certs: false
     status_code: 200
   register: _os_metrics_ready
@@ -27,11 +29,11 @@
 # ===========================
 - name: Enable Performance Analyzer plugin
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_plugins/_performanceanalyzer/cluster/config"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_performanceanalyzer/cluster/config"
     method: POST
-    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
-    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
-    force_basic_auth: "{{ opensearch_use_tls }}"
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
     validate_certs: false
     body_format: json
     body:
@@ -41,13 +43,16 @@
   when: opensearch_performance_analyzer_enabled | bool
   failed_when: false
 
+# ===========================
+# Verify Cluster
+# ===========================
 - name: Verify metrics endpoint is accessible
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/stats"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/stats"
     method: GET
-    user: "{{ opensearch_admin_username if opensearch_use_tls else omit }}"
-    password: "{{ opensearch_admin_password if opensearch_use_tls else omit }}"
-    force_basic_auth: "{{ opensearch_use_tls }}"
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
     validate_certs: false
     status_code: 200
   register: _metrics_check
