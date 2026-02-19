@@ -3,16 +3,26 @@
 # Metrics & Monitoring
 # ===========================
 
+# ---------------------------
+# Determine protocol
+# ---------------------------
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
-    _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls | default(false) else 'http' }}"
+
+# ---------------------------
+# Default API host if not set
+# ---------------------------
+- name: Ensure API host is defined
+  ansible.builtin.set_fact:
+    _opensearch_api_host: "{{ opensearch_api_host | default('localhost') }}"
 
 # ===========================
 # Wait for OpenSearch Ready
 # ===========================
 - name: Wait for OpenSearch to be ready for metrics config
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/"
+    url: "{{ _opensearch_protocol }}://{{ _opensearch_api_host }}:{{ opensearch_http_port }}/"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -29,7 +39,7 @@
 # ===========================
 - name: Enable Performance Analyzer plugin
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_performanceanalyzer/cluster/config"
+    url: "{{ _opensearch_protocol }}://{{ _opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_performanceanalyzer/cluster/config"
     method: POST
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -40,15 +50,15 @@
       enabled: true
       shardsPerCollection: 0
     status_code: [200, 201]
-  when: opensearch_performance_analyzer_enabled | bool
+  when: opensearch_performance_analyzer_enabled | default(false) | bool
   failed_when: false
 
 # ===========================
-# Verify Cluster
+# Verify Cluster Metrics
 # ===========================
 - name: Verify metrics endpoint is accessible
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/stats"
+    url: "{{ _opensearch_protocol }}://{{ _opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/stats"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
