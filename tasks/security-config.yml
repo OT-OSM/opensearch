@@ -11,7 +11,7 @@
     mode: "0750"
 
 # ----------------------------------------------------------
-# Verify required TLS files exist (company provided)
+# Verify required TLS files exist
 # ----------------------------------------------------------
 - name: Check TLS certificate files
   ansible.builtin.stat:
@@ -29,64 +29,34 @@
   loop: "{{ tls_files.results }}"
 
 # ----------------------------------------------------------
-# Permission check (FIX ONLY IF WRONG)
+# Ensure proper permissions
 # ----------------------------------------------------------
-- name: Check TLS file permissions
-  ansible.builtin.stat:
+- name: Fix TLS file permissions
+  ansible.builtin.file:
     path: "{{ opensearch_certs_dir }}/{{ item.name }}"
+    owner: opensearch
+    group: opensearch
+    mode: "{{ item.mode }}"
   loop:
     - { name: "{{ opensearch_tls_root_ca_file }}", mode: "0644" }
     - { name: "{{ opensearch_tls_cert_file }}",    mode: "0644" }
     - { name: "{{ opensearch_tls_key_file }}",     mode: "0600" }
-  register: tls_permissions
-
-- name: Fix TLS permissions only if needed
-  ansible.builtin.file:
-    path: "{{ opensearch_certs_dir }}/{{ item.item.name }}"
-    owner: opensearch
-    group: opensearch
-    mode: "{{ item.item.mode }}"
-  when: >
-    item.stat.exists and
-    (item.stat.mode | int(base=8)) != (item.item.mode | int(base=8))
-  loop: "{{ tls_permissions.results }}"
 
 # ----------------------------------------------------------
-# Wait for OpenSearch HTTPS (service already running)
+# Start OpenSearch
 # ----------------------------------------------------------
 - name: Start OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
-    state: started
+    state: restarted
     enabled: true
-    
-- name: Wait for OpenSearch API
+
+# ----------------------------------------------------------
+# Wait for HTTPS
+# ----------------------------------------------------------
+- name: Wait for OpenSearch HTTPS
   ansible.builtin.wait_for:
     host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_http_port }}"
-    delay: 10
+    delay: 15
     timeout: 120
-
-# ----------------------------------------------------------
-# Apply security config certs
-# ----------------------------------------------------------
-- name: Apply security config via securityadmin
-  ansible.builtin.command: >
-    {{ opensearch_security_config_dir | dirname }}/tools/securityadmin.sh
-    -cd {{ opensearch_security_config_dir }}
-    -icl
-    -nhnv
-    -h {{ opensearch_api_host }}
-    -p {{ opensearch_http_port }}
-    -https
-    -cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
-    -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
-    -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
-
-- name: Fail if securityadmin failed
-  ansible.builtin.fail:
-    msg: |
-      SecurityAdmin failed
-      STDOUT: {{ security_admin_result.stdout }}
-      STDERR: {{ security_admin_result.stderr }}
-  when: security_admin_result.rc != 0
