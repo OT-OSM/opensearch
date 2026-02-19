@@ -52,6 +52,7 @@ plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
+plugins.security.ssl.http.clientauth_mode: NONE
 
 # ===========================
 # Monitoring
