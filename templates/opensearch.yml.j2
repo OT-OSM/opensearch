@@ -34,11 +34,10 @@ node.roles:
 bootstrap.memory_lock: false
 
 # ===========================
-# TLS Security
+# SECURITY + TLS CONFIG
 # ===========================
 
 plugins.security.disabled: false
-plugins.security.allow_default_init_securityindex: true
 
 # ---------- Transport TLS ----------
 plugins.security.ssl.transport.enabled: true
@@ -53,6 +52,10 @@ plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.http.clientauth_mode: NONE
+
+# ---------- ADMIN CERT DN (CRITICAL) ----------
+plugins.security.authcz.admin_dn:
+  - "CN=opstree.dev"
 
 # ===========================
 # Monitoring
