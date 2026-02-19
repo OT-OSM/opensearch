@@ -34,26 +34,22 @@ node.roles:
 bootstrap.memory_lock: false
 
 # ===========================
-# SECURITY + TLS CONFIG
+# SECURITY CONFIG
 # ===========================
 
 plugins.security.disabled: false
 
-# ---------- Transport TLS ----------
+# ---------- Transport TLS (REQUIRED) ----------
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
 plugins.security.ssl.transport.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
 plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
-# ---------- HTTP TLS ----------
-plugins.security.ssl.http.enabled: true
-plugins.security.ssl.http.pemcert_filepath: certs/{{ opensearch_tls_cert_file }}
-plugins.security.ssl.http.pemkey_filepath: certs/{{ opensearch_tls_key_file }}
-plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ opensearch_tls_root_ca_file }}
-plugins.security.ssl.http.clientauth_mode: NONE
+# ---------- HTTP TLS (DISABLED FOR STABILITY) ----------
+plugins.security.ssl.http.enabled: false
 
-# ---------- ADMIN CERT DN (CRITICAL) ----------
+# ---------- ADMIN CERT DN ----------
 plugins.security.authcz.admin_dn:
   - "CN=opstree.dev"
 
