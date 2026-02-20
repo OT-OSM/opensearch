@@ -1,0 +1,260 @@
+---
+# ===========================
+# User & Group
+# ===========================
+
+- name: Ensure opensearch group exists
+  ansible.builtin.group:
+    name: opensearch
+    state: present
+    system: true
+
+- name: Ensure opensearch user exists
+  ansible.builtin.user:
+    name: opensearch
+    state: present
+    system: true
+    group: opensearch
+    create_home: false
+
+# ===========================
+# Password Hashing
+# ===========================
+
+- name: Generate admin password hash using OpenSearch hash tool
+  ansible.builtin.shell: |
+    JAVA_HOME=/usr/share/opensearch/jdk /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p '{{ opensearch_admin_password }}' 2>/dev/null | tail -1
+  register: admin_hash_result
+  changed_when: false
+  no_log: true
+
+- name: Set admin password hash fact
+  ansible.builtin.set_fact:
+    opensearch_admin_password_hash: "{{ admin_hash_result.stdout }}"
+  no_log: true
+
+- name: Generate kibanaserver password hash using OpenSearch hash tool
+  ansible.builtin.shell: |
+    JAVA_HOME=/usr/share/opensearch/jdk /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p '{{ opensearch_kibanaserver_password }}' 2>/dev/null | tail -1
+  register: kibana_hash_result
+  changed_when: false
+  no_log: true
+
+- name: Set kibanaserver password hash fact
+  ansible.builtin.set_fact:
+    opensearch_kibanaserver_password_hash: "{{ kibana_hash_result.stdout }}"
+  no_log: true
+
+# ===========================
+# Directories
+# ===========================
+
+- name: Create OpenSearch config directory
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+- name: Create OpenSearch data directory
+  ansible.builtin.file:
+    path: "{{ opensearch_data_path }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+- name: Create OpenSearch logs directory
+  ansible.builtin.file:
+    path: "{{ opensearch_logs_path }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+# ===========================
+# Deploy Configuration Files
+# ===========================
+
+- name: Deploy opensearch.yml
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  notify: Restart OpenSearch
+
+- name: Deploy jvm.options
+  ansible.builtin.template:
+    src: jvm.options.j2
+    dest: "{{ opensearch_config_dir }}/jvm.options"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  notify: Restart OpenSearch
+
+# ===========================
+# System Limits
+# ===========================
+
+- name: Configure system limits
+  ansible.builtin.lineinfile:
+    path: /etc/security/limits.conf
+    line: "{{ item }}"
+    create: true
+  loop:
+    - "opensearch soft nofile 65536"
+    - "opensearch hard nofile 65536"
+    - "opensearch soft nproc 4096"
+    - "opensearch hard nproc 4096"
+    - "opensearch soft memlock unlimited"
+    - "opensearch hard memlock unlimited"
+
+# ===========================
+# Systemd Override
+# ===========================
+
+- name: Create systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/opensearch.service.d
+    state: directory
+
+- name: Deploy systemd override file
+  ansible.builtin.template:
+    src: opensearch_override.conf.j2
+    dest: /etc/systemd/system/opensearch.service.d/override.conf
+  notify:
+    - Reload systemd
+    - Restart OpenSearch
+
+# ===========================
+# Environment File
+# ===========================
+
+- name: Deploy environment file (Debian)
+  ansible.builtin.template:
+    src: opensearch.env.j2
+    dest: /etc/default/opensearch
+  when: ansible_os_family == "Debian"
+  notify: Restart OpenSearch
+
+# ===========================
+# Security Plugin
+# ===========================
+
+- name: Check if security plugin exists
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-security
+  register: security_plugin
+
+- name: Install security plugin if missing
+  ansible.builtin.command:
+    cmd: /usr/share/opensearch/bin/opensearch-plugin install -b opensearch-security
+  when: not security_plugin.stat.exists
+  notify: Restart OpenSearch
+
+# ===========================
+# Fix Permissions
+# ===========================
+
+- name: Fix plugin directory permissions
+  ansible.builtin.file:
+    path: /usr/share/opensearch/plugins
+    owner: opensearch
+    group: opensearch
+    recurse: true
+
+# ===========================
+# Install Demo Certs (HTTP mode only)
+# ===========================
+
+- name: Check if demo certs already installed
+  ansible.builtin.stat:
+    path: "{{ opensearch_config_dir }}/esnode.pem"
+  register: demo_certs_check
+  when: not opensearch_use_tls | bool
+
+- name: Strip security config from opensearch.yml for demo installer
+  ansible.builtin.shell: |
+    sed -i '/^plugins\.security\./d' {{ opensearch_config_dir }}/opensearch.yml
+  when:
+    - not opensearch_use_tls | bool
+    - not (demo_certs_check.stat.exists | default(false))
+
+- name: Install demo certificates for security plugin
+  ansible.builtin.shell: |
+    /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh -y -i -s
+  args:
+    chdir: /usr/share/opensearch
+  environment:
+    OPENSEARCH_CONF_DIR: "{{ opensearch_config_dir }}"
+    OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_admin_password }}"
+  when:
+    - not opensearch_use_tls | bool
+    - not (demo_certs_check.stat.exists | default(false))
+
+- name: Re-deploy opensearch.yml (overwrite demo config changes)
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  when: not opensearch_use_tls | bool
+
+- name: Fix demo certificate permissions
+  ansible.builtin.file:
+    path: "{{ opensearch_config_dir }}/{{ item }}"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  loop:
+    - esnode.pem
+    - esnode-key.pem
+    - root-ca.pem
+    - kirk.pem
+    - kirk-key.pem
+  when: not opensearch_use_tls | bool
+  failed_when: false
+
+# ===========================
+# Deploy Security Config (HTTP mode — before first boot)
+# ===========================
+# allow_default_init_securityindex loads from this dir on first boot
+
+- name: Deploy custom internal_users.yml to security config dir
+  ansible.builtin.template:
+    src: internal_users.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch-security/internal_users.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: not opensearch_use_tls | bool
+
+- name: Deploy custom roles_mapping.yml to security config dir
+  ansible.builtin.template:
+    src: roles_mapping.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch-security/roles_mapping.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: not opensearch_use_tls | bool
+
+# ===========================
+# Service Management
+# ===========================
+
+- name: Enable OpenSearch service
+  ansible.builtin.systemd:
+    name: opensearch
+    enabled: true
+    daemon_reload: true
+
+- name: Start OpenSearch service
+  ansible.builtin.systemd:
+    name: opensearch
+    state: started
+  async: 300
+  poll: 5

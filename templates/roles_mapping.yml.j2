@@ -1,0 +1,22 @@
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+all_access:
+  reserved: false
+  users:
+    - "{{ opensearch_admin_username }}"
+
+kibana_server:
+  reserved: true
+  users:
+    - "{{ opensearch_kibanaserver_username }}"
+
+kibana_user:
+  reserved: false
+  users:
+    - "{{ opensearch_admin_username }}"
+
+security_rest_api_access:
+  users:
+    - "{{ opensearch_admin_username }}"

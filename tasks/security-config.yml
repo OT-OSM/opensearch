@@ -1,0 +1,104 @@
+---
+# ----------------------------------------------------------
+# Ensure cert directory exists
+# ----------------------------------------------------------
+- name: Ensure OpenSearch certs directory exists
+  file:
+    path: "{{ opensearch_certs_dir }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+
+
+# ----------------------------------------------------------
+# Verify required TLS files exist
+# ----------------------------------------------------------
+- name: Check TLS certificate files
+  stat:
+    path: "{{ opensearch_certs_dir }}/{{ item }}"
+  loop:
+    - "{{ opensearch_tls_root_ca_file }}"
+    - "{{ opensearch_tls_cert_file }}"
+    - "{{ opensearch_tls_key_file }}"
+  register: tls_files
+
+
+- name: Fail if TLS file missing
+  fail:
+    msg: "Missing TLS file: {{ item.item }}"
+  when: not item.stat.exists
+  loop: "{{ tls_files.results }}"
+
+
+# ----------------------------------------------------------
+# Fix TLS permissions
+# ----------------------------------------------------------
+- name: Fix TLS file permissions
+  file:
+    path: "{{ opensearch_certs_dir }}/{{ item.name }}"
+    owner: opensearch
+    group: opensearch
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: "{{ opensearch_tls_root_ca_file }}", mode: "0644" }
+    - { name: "{{ opensearch_tls_cert_file }}", mode: "0644" }
+    - { name: "{{ opensearch_tls_key_file }}", mode: "0600" }
+
+
+# ----------------------------------------------------------
+# Start OpenSearch
+# ----------------------------------------------------------
+- name: Restart OpenSearch
+  systemd:
+    name: opensearch
+    state: restarted
+    enabled: true
+
+
+# ----------------------------------------------------------
+# Wait for HTTPS port
+# ----------------------------------------------------------
+- name: Wait for OpenSearch HTTPS
+  wait_for:
+    host: "{{ opensearch_api_host }}"
+    port: "{{ opensearch_http_port }}"
+    delay: 10
+    timeout: 120
+
+
+# ----------------------------------------------------------
+# Initialize Security Index (MOST IMPORTANT FIX)
+# ----------------------------------------------------------
+- name: Initialize OpenSearch Security Index
+  command: >
+    /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+    -cd /etc/opensearch/opensearch-security/
+    -icl
+    -nhnv
+    -cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
+    -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
+    -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
+  register: security_init
+  failed_when: false
+  changed_when: true
+
+
+# ----------------------------------------------------------
+# Restart OpenSearch after security init
+# ----------------------------------------------------------
+- name: Restart OpenSearch after security init
+  systemd:
+    name: opensearch
+    state: restarted
+
+
+# ----------------------------------------------------------
+# Wait again after init
+# ----------------------------------------------------------
+- name: Wait for OpenSearch HTTPS after security init
+  wait_for:
+    host: "{{ opensearch_api_host }}"
+    port: "{{ opensearch_http_port }}"
+    delay: 10
+    timeout: 120

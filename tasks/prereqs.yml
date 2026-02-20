@@ -1,0 +1,112 @@
+---
+# ===========================
+# Java Installation (Semaphore SAFE)
+# ===========================
+
+- name: Install Java (Debian/Ubuntu) - non interactive
+  become: true
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y {{ opensearch_java_package }}
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Debian'
+
+- name: Install Java (RedHat/Amazon)
+  become: true
+  ansible.builtin.package:
+    name: "{{ opensearch_java_package }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+# ===========================
+# Kernel Tuning
+# ===========================
+- name: Set vm.max_map_count
+  become: true
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ opensearch_vm_max_map_count }}"
+    state: present
+    reload: true
+
+- name: Disable swap (if configured)
+  become: true
+  ansible.builtin.command: swapoff -a
+  when:
+    - ansible_swaptotal_mb | default(0) > 0
+    - opensearch_disable_swap | bool
+  changed_when: false
+
+# ===========================
+# Cluster Connectivity Check
+# ===========================
+- name: Verify network connectivity between nodes (Port 9300)
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[item]['ansible_default_ipv4']['address'] | default(item) }}"
+    port: 9300
+    timeout: 5
+    state: started
+  loop: "{{ ansible_play_hosts }}"
+  when:
+    - opensearch_enable_cluster_mode | bool
+    - ansible_play_hosts | length > 1
+    - item != inventory_hostname
+  ignore_errors: true
+
+# ===========================
+# Hostname Configuration
+# ===========================
+- name: Set hostname for OpenSearch node
+  become: true
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  when: opensearch_configure_hostname | bool
+  failed_when: false
+
+# ===========================
+# Kernel Tuning
+# ===========================
+- name: Set vm.max_map_count
+  become: true
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ opensearch_vm_max_map_count }}"
+    state: present
+    reload: true
+
+- name: Set fs.file-max
+  become: true
+  ansible.posix.sysctl:
+    name: fs.file-max
+    value: "{{ opensearch_systemd_limit_nofile }}"
+    state: present
+    reload: true
+
+- name: Disable swap (if configured)
+  become: true
+  ansible.builtin.command: swapoff -a
+  when:
+    - ansible_swaptotal_mb | default(0) > 0
+    - opensearch_disable_swap | bool
+  changed_when: false
+
+# ===========================
+# Data Purge (Fresh Install)
+# ===========================
+- name: Stop OpenSearch before purging data
+  become: true
+  ansible.builtin.systemd:
+    name: opensearch
+    state: stopped
+  when: opensearch_purge_data | bool
+  ignore_errors: true
+  failed_when: false
+
+- name: Purge OpenSearch data directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ opensearch_data_path }}"
+    state: absent
+  when: opensearch_purge_data | bool

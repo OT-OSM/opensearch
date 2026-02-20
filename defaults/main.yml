@@ -1,19 +1,170 @@
 ---
-BaseUrl: https://artifacts.opensearch.org/releases/bundle/opensearch
+# ===========================
+# OpenSearch Version Control
+# ===========================
+opensearch_version: "2.11.1"
+opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"
+opensearch_dashboards_version: "{{ opensearch_version }}"
 
-UserName: opensearch
-Opensearch_Dir: /opt/opensearch
-SecurityFileUrl: https://search.maven.org/remotecontent?filepath=com/floragunn/search-guard-tlstool/1.5/search-guard-tlstool-1.5.tar.gz
-OpensearchBinaryPath: /opt/opensearch/bin
+# ===========================
+# Installation Toggles
+# ===========================
+opensearch_install_node: true
+opensearch_install_dashboard: true
+opensearch_enable_cluster_mode: true
+opensearch_bootstrap_cluster: false
 
-cluster_master_nodes: |-
-        {% for item in groups['cluster_master_nodes'] -%}
-          {{ item }}{% if not loop.last %}, {% endif %}
-        {%- endfor %}
+# ===========================
+# Cluster Configuration
+# ===========================
+opensearch_cluster_name: "opensearch-cluster"
+opensearch_node_name: "{{ inventory_hostname }}"
+opensearch_node_roles:
+  - cluster_manager
+  - data
+  - ingest
+opensearch_discovery_seed_hosts: []
+opensearch_initial_master_nodes: []
+opensearch_domain_name: "example.com"
 
-cluster_nodes: |-
-        {% for item in groups['cluster_nodes'] -%}
-          {{ item }}{% if not loop.last %}, {% endif %}
-        {%- endfor %}
+# ===========================
+# Network & Connectivity
+# ===========================
+opensearch_network_host: "0.0.0.0"
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
 
-DiscoveryType: single-node
+# ===========================
+# Java Configuration
+# ===========================
+opensearch_java_package: "default-jdk-headless" # Overridden by vars/{os}.yml
+opensearch_java_home: "/usr/share/opensearch/jdk"
+# ===========================
+# JVM Heap Size (Recommended: 50% of available RAM, up to 32GB)
+opensearch_jvm_heap_size: "1g"
+
+# ===========================
+# System Tuning
+# ===========================
+opensearch_vm_max_map_count: 262144
+opensearch_disable_swap: false
+opensearch_configure_hostname: true
+opensearch_bootstrap_memory_lock: false
+
+# ===========================
+# Systemd / Resource Limits
+# ===========================
+opensearch_systemd_timeout: 900
+opensearch_systemd_limit_nofile: 65536
+opensearch_systemd_limit_nproc: 4096
+
+# ===========================
+# Path Configuration
+# ===========================
+opensearch_data_path: /var/lib/opensearch
+# Set to 'true' to wipe the data directory before installation.
+# Useful for fixing version mismatch issues (e.g. downgrading).
+opensearch_purge_data: false
+opensearch_logs_path: /var/log/opensearch
+opensearch_config_dir: "/etc/opensearch"
+opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
+opensearch_security_config_dir: "/usr/share/opensearch/plugins/opensearch-security/securityconfig"
+
+# ===========================
+# Index Defaults
+# ===========================
+opensearch_number_of_shards: 1
+opensearch_number_of_replicas: 0
+
+# ===========================
+# Security / TLS
+# ===========================
+# When true: HTTPS (Port 9200) + Transport TLS (Port 9300)
+# When false: HTTP (Port 9200) + No Transport TLS (or internal only)
+opensearch_use_tls: false
+
+# Source paths for certificates (Relative to OpenSearch config directory or Absolute)
+# NOTE: When opensearch_use_tls is true, YOU MUST PROVIDE THESE FILES.
+# The role does NOT auto-generate certificates.
+
+# HTTP layer (External Client-to-Node)
+# HTTP layer (External Client-to-Node)
+opensearch_root_ca_path: "/etc/opensearch/chain.pem"
+opensearch_node_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_node_key_path: "/etc/opensearch/privkey.pem"
+
+# Transport layer (Internal Node-to-Node)
+# Can be the same as HTTP if the cert supports both usages (serverAuth + clientAuth)
+opensearch_transport_root_ca_path: "/etc/opensearch/chain.pem"
+opensearch_transport_node_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_transport_node_key_path: "/etc/opensearch/privkey.pem"
+
+# Admin certificates (for securityadmin.sh)
+# Must be a client certificate trusted by the Root CA
+opensearch_admin_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_admin_key_path: "/etc/opensearch/privkey.pem"
+
+opensearch_admin_dn: []
+opensearch_nodes_dn: []
+
+# ===========================
+# Authentication / SSO
+# ===========================
+opensearch_enable_sso: false
+opensearch_auth_type: "basic" # Options: basic, openid, saml
+opensearch_admin_username: "admin"
+opensearch_admin_password: "Strong@321"
+opensearch_admin_password_hash: ""
+opensearch_kibanaserver_password: "Strong@321"
+opensearch_kibanaserver_password_hash: ""
+
+# OpenID Connect Configuration (when opensearch_auth_type == 'openid')
+opensearch_openid_connect_url: ""
+opensearch_openid_client_id: ""
+opensearch_openid_client_secret: ""
+opensearch_openid_scope: "openid profile email"
+opensearch_openid_base_redirect_url: ""
+
+# SAML Configuration (when opensearch_auth_type == 'saml')
+opensearch_saml_idp_metadata_url: ""
+opensearch_saml_entity_id: ""
+opensearch_saml_exchange_key: ""
+
+# ===========================
+# Access Control
+# ===========================
+opensearch_access_control_enabled: false
+opensearch_custom_roles: []
+# Example:
+#   - name: "readall_role"
+#     cluster_permissions: ["cluster_composite_ops_ro"]
+#     index_permissions:
+#       - index_patterns: ["*"]
+#         allowed_actions: ["read", "indices:data/read/*"]
+
+opensearch_custom_role_mappings: []
+# Example:
+#   - role: "readall_role"
+#     backend_roles: ["readall"]
+
+opensearch_custom_internal_users: []
+# Example:
+#   - name: "readonly_user"
+#     password_hash: "$2a$12$..."
+#     backend_roles: ["readall"]
+
+# ===========================
+# Metrics / Monitoring
+# ===========================
+opensearch_metrics_enabled: false
+opensearch_prometheus_port: 9600
+opensearch_performance_analyzer_enabled: false
+
+# ===========================
+# OpenSearch Dashboards
+# ===========================
+opensearch_dashboards_port: 5601
+opensearch_dashboards_host: "0.0.0.0"
+opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
+opensearch_dashboards_admin_username: "admin"
+opensearch_dashboards_opensearch_host: "localhost:9200"

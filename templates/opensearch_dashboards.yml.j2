@@ -1,0 +1,65 @@
+# ===========================
+# OpenSearch Dashboards Configuration
+# Managed by Ansible
+# ===========================
+
+server.port: {{ opensearch_dashboards_port }}
+server.host: "{{ opensearch_dashboards_host }}"
+
+# ===========================
+# OpenSearch Connection
+# ===========================
+{% if opensearch_use_tls | bool %}
+opensearch.hosts:
+  - "https://{{ opensearch_dashboards_opensearch_host }}"
+opensearch.ssl.verificationMode: none
+{% else %}
+opensearch.hosts:
+  - "http://{{ opensearch_dashboards_opensearch_host }}"
+{% endif %}
+
+# ===========================
+# BACKEND SERVICE AUTH
+# ===========================
+# Dashboards -> OpenSearch internal auth
+opensearch.username: "{{ opensearch_kibanaserver_username }}"
+opensearch.password: "{{ opensearch_kibanaserver_password }}"
+
+# ===========================
+# UI Security (Login Page)
+# ===========================
+opensearch_security.enabled: true
+opensearch_security.auth.type: "basicauth"
+
+# ===========================
+# Dashboards Server TLS (UI side)
+# ===========================
+{% if opensearch_use_tls | bool %}
+server.ssl.enabled: true
+server.ssl.certificate: certs/node.pem
+server.ssl.key: certs/node-key.pem
+{% else %}
+server.ssl.enabled: false
+{% endif %}
+
+# ===========================
+# SSO Configuration (only when enabled)
+# ===========================
+{% if opensearch_enable_sso | bool and opensearch_use_tls | bool %}
+
+{% if opensearch_auth_type == 'openid' %}
+opensearch_security.auth.type: "openid"
+opensearch_security.openid.connect_url: "{{ opensearch_openid_connect_url }}"
+opensearch_security.openid.client_id: "{{ opensearch_openid_client_id }}"
+opensearch_security.openid.client_secret: "{{ opensearch_openid_client_secret }}"
+opensearch_security.openid.scope: "{{ opensearch_openid_scope }}"
+{% if opensearch_openid_base_redirect_url %}
+opensearch_security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_url }}"
+{% endif %}
+{% endif %}
+
+{% if opensearch_auth_type == 'saml' %}
+opensearch_security.auth.type: "saml"
+{% endif %}
+
+{% endif %}

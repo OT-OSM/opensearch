@@ -1,25 +1,32 @@
----
 galaxy_info:
-  author: varghese.palamoottil@opstree.com
-  role_name: opensearch
-  description: Install and configure opensearch.
-  company: "Opstree Solutions"
-  min_ansible_version: 2.3
-  license: license (GPLv2)
+  author: Sneha Joshi
+  description: Enterprise Ansible role for OpenSearch — HA/standalone, TLS, SSO, access control, metrics
+  company: "Opstree"
+  license: "Apache-2.0"
+  min_ansible_version: "2.14"
   platforms:
     - name: EL
       versions:
-        - 8
-        - 7
-        - 6
-
+        - "8"
+        - "9"
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
     - name: Ubuntu
       versions:
-        - bionic
-        - focal
         - jammy
-
+        - noble
+    - name: Amazon
+      versions:
+        - "all"
   galaxy_tags:
     - opensearch
+    - search
+    - analytics
+    - monitoring
+    - tls
+    - sso
+    - ha
 
 dependencies: []

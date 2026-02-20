@@ -1,0 +1,122 @@
+# ===========================
+# OpenSearch Configuration
+# ===========================
+
+cluster.name: "{{ opensearch_cluster_name }}"
+node.name: "{{ opensearch_node_name }}"
+
+path.data: "{{ opensearch_data_path }}"
+path.logs: "{{ opensearch_logs_path }}"
+
+
+# ===========================
+# Network Configuration
+# ===========================
+
+network.host: "{{ opensearch_network_host }}"
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+
+
+# ===========================
+# Discovery
+# ===========================
+
+discovery.type: single-node
+
+
+# ===========================
+# Node Roles
+# ===========================
+
+node.roles:
+{% for role in opensearch_node_roles %}
+  - "{{ role }}"
+{% endfor %}
+
+
+# ===========================
+# Bootstrap
+# ===========================
+
+bootstrap.memory_lock: false
+bootstrap.system_call_filter: false
+
+
+# ===========================
+# Security Plugin
+# ===========================
+
+{% if opensearch_use_tls | bool %}
+plugins.security.disabled: false
+
+plugins.security.allow_default_init_securityindex: true
+plugins.security.system_indices.enabled: true
+
+plugins.security.restapi.roles_enabled:
+  - all_access
+  - security_rest_api_access
+
+# Transport TLS (Node-to-Node)
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
+plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
+plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_root_ca_path }}"
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# HTTP TLS (Client-to-Node)
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
+plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
+plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
+
+# Admin DN
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
+
+# Nodes DN
+plugins.security.nodes_dn:
+{% for dn in opensearch_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
+{% else %}
+# Security plugin ENABLED with demo certificates (HTTP mode — no user TLS)
+# Transport SSL uses demo certs; HTTP remains non-SSL with basic auth.
+plugins.security.disabled: false
+
+plugins.security.allow_default_init_securityindex: true
+plugins.security.allow_unsafe_democertificates: true
+plugins.security.system_indices.enabled: true
+
+plugins.security.restapi.roles_enabled:
+  - all_access
+  - security_rest_api_access
+
+# Transport TLS with demo certs
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: esnode.pem
+plugins.security.ssl.transport.pemkey_filepath: esnode-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# HTTP — no SSL, but auth is still enforced by the security plugin
+plugins.security.ssl.http.enabled: false
+
+# Admin DN (demo kirk cert)
+plugins.security.authcz.admin_dn:
+  - "CN=kirk,OU=client,O=client,L=test,C=de"
+
+# Nodes DN (demo esnode cert)
+plugins.security.nodes_dn:
+  - "CN=node0.example.com,OU=SSL,O=Test,L=Test,C=DE"
+{% endif %}
+
+
+# ===========================
+# Compatibility
+# ===========================
+
+compatibility.override_main_response_version: true
+

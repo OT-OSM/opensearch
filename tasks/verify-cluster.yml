@@ -1,0 +1,62 @@
+---
+# ===========================
+# Cluster Health Verification
+# ===========================
+- name: Determine protocol for API calls
+  set_fact:
+    opensearch_api_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+
+- name: Wait for OpenSearch port to be open
+  ansible.builtin.wait_for:
+    port: "{{ opensearch_http_port }}"
+    host: "127.0.0.1"
+    state: started
+    timeout: 300
+
+- name: Wait for OpenSearch cluster health
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: 200
+    timeout: 5
+  register: cluster_health
+  until: cluster_health.status == 200
+  retries: 120
+  delay: 5
+
+- name: Display cluster health status
+  ansible.builtin.debug:
+    msg: >-
+      Cluster: {{ cluster_health.json.cluster_name | default('unknown') }},
+      Status: {{ cluster_health.json.status | default('unknown') }},
+      Nodes: {{ cluster_health.json.number_of_nodes | default(0) }},
+      Data Nodes: {{ cluster_health.json.number_of_data_nodes | default(0) }}
+  when: cluster_health.status | default(0) == 200
+
+- name: Fail if OpenSearch is not healthy
+  ansible.builtin.fail:
+    msg: >-
+      OpenSearch health check failed. Status: {{ cluster_health.status | default('unreachable') }}.
+      Error: {{ cluster_health.msg | default('No response') }}
+  when: cluster_health.status | default(0) != 200
+
+# ===========================
+# Default Index Template
+# ===========================
+- name: Apply default index template
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_index_template/default_template"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    body: "{{ lookup('template', 'default_template.json.j2') }}"
+    body_format: json
+    validate_certs: false
+    status_code: [200, 201]
+  when: inventory_hostname == (opensearch_initial_master_nodes | first | default(inventory_hostname))
+  failed_when: false
