@@ -26,6 +26,8 @@ opensearch_node_roles:
 opensearch_discovery_seed_hosts: []
 opensearch_initial_master_nodes: []
 opensearch_domain_name: "example.com"
+opensearch_api_host: "{{ opensearch_domain_name }}"
+opensearch_dashboards_public_host: "{{ opensearch_domain_name }}"
 
 # ===========================
 # Network & Connectivity
@@ -167,4 +169,4 @@ opensearch_dashboards_port: 5601
 opensearch_dashboards_host: "0.0.0.0"
 opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
 opensearch_dashboards_admin_username: "admin"
-opensearch_dashboards_opensearch_host: "localhost:9200"
+opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
