@@ -25,7 +25,13 @@ opensearch_node_roles:
   - ingest
 opensearch_discovery_seed_hosts: []
 opensearch_initial_master_nodes: []
+
+# ===========================
+# Cluster Configuration
+# ===========================
+
 opensearch_domain_name: "example.com"
+
 opensearch_api_host: "{{ opensearch_domain_name | default('localhost') }}"
 
 opensearch_dashboards_public_host: "{{ opensearch_domain_name | default('localhost') }}"
@@ -170,6 +176,10 @@ opensearch_dashboards_port: 5601
 opensearch_dashboards_host: "0.0.0.0"
 opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
 opensearch_dashboards_admin_username: "admin"
-opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name | default('localhost') }}:{{ opensearch_http_port }}"
 
+# ===========================
+# OpenSearch Dashboards
+# ===========================
+
+opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name | default('localhost') }}:{{ opensearch_http_port }}"
 opensearch_dashboards_url: "http://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
