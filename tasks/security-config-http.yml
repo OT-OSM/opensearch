@@ -2,30 +2,15 @@
 # ===========================
 # Security Verification (HTTP mode)
 # ===========================
-# Security index was auto-initialized on first boot via
-# allow_default_init_securityindex from /etc/opensearch/opensearch-security/
 
-# - name: Run securityadmin.sh to apply custom security configuration
-#   ansible.builtin.shell: |
-#     /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh \
-#       -cd {{ opensearch_security_config_dir }} \
-#       -icl -nhnv -dg \
-#       -cacert {{ opensearch_config_dir }}/root-ca.pem \
-#       -cert {{ opensearch_config_dir }}/kirk.pem \
-#       -key {{ opensearch_config_dir }}/kirk-key.pem \
-#       -h localhost \
-#       -p {{ opensearch_http_port }}
-#   environment:
-#     JAVA_HOME: /usr/share/opensearch/jdk
-#   register: securityadmin_result
-#   retries: 10
-#   delay: 15
-#   until: securityadmin_result.rc == 0
-#   changed_when: true
+- name: Determine protocol
+  set_fact:
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+
 
 - name: Wait for OpenSearch to accept authenticated requests
   ansible.builtin.uri:
-    url: "http://localhost:9200/_cluster/health"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -37,6 +22,9 @@
   delay: 10
   until: health_with_auth.status == 200
 
+
 - name: Display authenticated cluster health
   ansible.builtin.debug:
-    msg: "Security active — authenticated as {{ opensearch_admin_username }} | Cluster status: {{ health_with_auth.json.status }}"
+    msg: >
+      Security active — authenticated as {{ opensearch_admin_username }}
+      | Cluster status: {{ health_with_auth.json.status }}
