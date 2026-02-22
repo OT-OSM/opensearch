@@ -50,7 +50,7 @@
 
 - name: Verify Prometheus metrics endpoint
   uri:
-    url: "http://{{ opensearch_api_host }}:{{ opensearch_prometheus_port }}/metrics"
+    url: "{{ opensearch_api_protocol }}://{{ opensearch_api_host }}:{{ opensearch_prometheus_port }}/metrics"
     method: GET
     validate_certs: false
     status_code: 200
