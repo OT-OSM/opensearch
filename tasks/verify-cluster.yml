@@ -18,7 +18,7 @@
 
 - name: Wait for OpenSearch cluster health
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_cluster/health"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -57,7 +57,7 @@
 
 - name: Apply default index template
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_index_template/default_template"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_index_template/default_template"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
