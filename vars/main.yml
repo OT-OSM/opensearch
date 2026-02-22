@@ -4,4 +4,3 @@ opensearch_admin_password: "Strong@321"
 opensearch_bootstrap_cluster: true
 opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
 opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
-opensearch_domain_name: "example.com"
