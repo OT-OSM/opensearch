@@ -31,9 +31,7 @@ opensearch_initial_master_nodes: []
 # ===========================
 
 opensearch_domain_name: "{{ undef() }}"
-
-opensearch_api_host: "{{ opensearch_domain_name | default('localhost') }}"
-
+opensearch_api_host: "{{ opensearch_domain_name }}"
 opensearch_dashboards_public_host: "{{ opensearch_domain_name | default('localhost') }}"
 
 # ===========================
@@ -181,5 +179,5 @@ opensearch_dashboards_admin_username: "admin"
 # OpenSearch Dashboards
 # ===========================
 
-opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name | default('localhost') }}:{{ opensearch_http_port }}"
+opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
 opensearch_dashboards_url: "http://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
