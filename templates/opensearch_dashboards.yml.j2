@@ -5,6 +5,7 @@
 
 server.port: {{ opensearch_dashboards_port }}
 server.host: "{{ opensearch_dashboards_host }}"
+server.publicBaseUrl: "http://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
 
 # ===========================
 # OpenSearch Connection
