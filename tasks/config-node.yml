@@ -252,9 +252,13 @@
     enabled: true
     daemon_reload: true
 
+# ===========================
+# Start OpenSearch service 
+# ===========================
+
 - name: Start OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
     state: started
-  async: 300
-  poll: 5
+    enabled: true
+    daemon_reload: true
