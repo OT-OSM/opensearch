@@ -170,6 +170,7 @@ opensearch_performance_analyzer_enabled: false
 # ===========================
 # OpenSearch Dashboards
 # ===========================
+opensearch_dashboards_public_protocol: "http"
 opensearch_dashboards_port: 5601
 opensearch_dashboards_host: "0.0.0.0"
 opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
@@ -180,4 +181,4 @@ opensearch_dashboards_admin_username: "admin"
 # ===========================
 
 opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
-opensearch_dashboards_url: "http://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
+opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
