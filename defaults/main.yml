@@ -30,7 +30,7 @@ opensearch_initial_master_nodes: []
 # Cluster Configuration
 # ===========================
 
-opensearch_domain_name: ""
+opensearch_domain_name: "opensearch.opstree.dev"
 
 opensearch_api_host: "{{ opensearch_domain_name | default('localhost') }}"
 
