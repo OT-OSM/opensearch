@@ -13,16 +13,16 @@
 
 
 # ----------------------------------------------------------
-# Verify required TLS files exist
+# Verify TLS files exist
 # ----------------------------------------------------------
 
 - name: Check TLS certificate files
   stat:
-    path: "{{ opensearch_certs_dir }}/{{ item }}"
+    path: "{{ item }}"
   loop:
-    - "{{ opensearch_tls_root_ca_file }}"
-    - "{{ opensearch_tls_cert_file }}"
-    - "{{ opensearch_tls_key_file }}"
+    - "{{ opensearch_root_ca_path }}"
+    - "{{ opensearch_admin_cert_path }}"
+    - "{{ opensearch_admin_key_path }}"
   register: tls_files
 
 
@@ -34,29 +34,28 @@
 
 
 # ----------------------------------------------------------
-# Fix TLS file permissions
+# Fix TLS permissions
 # ----------------------------------------------------------
 
 - name: Fix TLS file permissions
   file:
-    path: "{{ opensearch_certs_dir }}/{{ item.name }}"
+    path: "{{ item.path }}"
     owner: opensearch
     group: opensearch
     mode: "{{ item.mode }}"
   loop:
-    - { name: "{{ opensearch_tls_root_ca_file }}", mode: "0644" }
-    - { name: "{{ opensearch_tls_cert_file }}", mode: "0644" }
-    - { name: "{{ opensearch_tls_key_file }}", mode: "0600" }
-
+    - { path: "{{ opensearch_root_ca_path }}", mode: "0644" }
+    - { path: "{{ opensearch_admin_cert_path }}", mode: "0644" }
+    - { path: "{{ opensearch_admin_key_path }}", mode: "0600" }
 
 
 # ----------------------------------------------------------
-# ALSO FIX security config permissions (VERY IMPORTANT)
+# Fix security config permissions
 # ----------------------------------------------------------
 
 - name: Fix OpenSearch security config permissions
   file:
-    path: /etc/opensearch/opensearch-security
+    path: "{{ opensearch_security_config_dir }}"
     owner: opensearch
     group: opensearch
     mode: "0700"
@@ -75,9 +74,8 @@
     daemon_reload: true
 
 
-
 # ----------------------------------------------------------
-# Wait for OpenSearch HTTPS on localhost
+# Wait for OpenSearch
 # ----------------------------------------------------------
 
 - name: Wait for OpenSearch HTTPS
@@ -88,34 +86,31 @@
     timeout: 180
 
 
-
 # ----------------------------------------------------------
-# Initialize Security Index
+# Initialize Security Index (FIXED)
 # ----------------------------------------------------------
 
 - name: Initialize OpenSearch Security Index
   command: >
     /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
-    -cd /etc/opensearch/opensearch-security/
+    -cd {{ opensearch_security_config_dir }}
     -icl
     -nhnv
-    -cacert {{ opensearch_certs_dir }}/{{ opensearch_tls_root_ca_file }}
-    -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
-    -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
+    -cacert {{ opensearch_root_ca_path }}
+    -cert {{ opensearch_admin_cert_path }}
+    -key {{ opensearch_admin_key_path }}
   register: security_init
   changed_when: true
 
 
-
 # ----------------------------------------------------------
-# Restart after security init
+# Restart after init
 # ----------------------------------------------------------
 
 - name: Restart OpenSearch after security init
   systemd:
     name: opensearch
     state: restarted
-
 
 
 # ----------------------------------------------------------
