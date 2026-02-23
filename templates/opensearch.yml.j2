@@ -11,9 +11,10 @@ plugins.security.restapi.roles_enabled:
   - all_access
   - security_rest_api_access
 
+
 {% if opensearch_use_tls | bool %}
 
-#  REQUIRED LINE
+# CRITICAL — MUST be false when using real certs
 plugins.security.allow_unsafe_democertificates: false
 
 
@@ -36,6 +37,7 @@ plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
 plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
 plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
+
 
 {% else %}
 
