@@ -92,13 +92,14 @@
 
 - name: Initialize OpenSearch Security Index
   command: >
-    /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
-    -cd {{ opensearch_security_config_dir }}
-    -icl
-    -nhnv
-    -cacert {{ opensearch_root_ca_path }}
-    -cert {{ opensearch_admin_cert_path }}
-    -key {{ opensearch_admin_key_path }}
+  /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+  -cd {{ opensearch_security_config_dir }}
+  -icl
+  -nhnv
+  -cacert {{ opensearch_root_ca_path }}
+  -cert {{ opensearch_admin_cert_path }}
+  -key {{ opensearch_admin_key_path }}
+  -h localhost
   register: security_init
   changed_when: true
 
