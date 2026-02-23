@@ -2,6 +2,7 @@
 # ----------------------------------------------------------
 # Ensure cert directory exists
 # ----------------------------------------------------------
+
 - name: Ensure OpenSearch certs directory exists
   file:
     path: "{{ opensearch_certs_dir }}"
@@ -14,6 +15,7 @@
 # ----------------------------------------------------------
 # Verify required TLS files exist
 # ----------------------------------------------------------
+
 - name: Check TLS certificate files
   stat:
     path: "{{ opensearch_certs_dir }}/{{ item }}"
@@ -34,6 +36,7 @@
 # ----------------------------------------------------------
 # Fix TLS permissions
 # ----------------------------------------------------------
+
 - name: Fix TLS file permissions
   file:
     path: "{{ opensearch_certs_dir }}/{{ item.name }}"
@@ -47,8 +50,9 @@
 
 
 # ----------------------------------------------------------
-# Start OpenSearch
+# Restart OpenSearch
 # ----------------------------------------------------------
+
 - name: Restart OpenSearch
   systemd:
     name: opensearch
@@ -57,19 +61,21 @@
 
 
 # ----------------------------------------------------------
-# Wait for HTTPS port
+#  Wait on localhost NOT domain
 # ----------------------------------------------------------
+
 - name: Wait for OpenSearch HTTPS
   wait_for:
-    host: "{{ opensearch_api_host }}"
+    host: "127.0.0.1"
     port: "{{ opensearch_http_port }}"
     delay: 10
     timeout: 120
 
 
 # ----------------------------------------------------------
-# Initialize Security Index (MOST IMPORTANT FIX)
+# Initialize Security Index
 # ----------------------------------------------------------
+
 - name: Initialize OpenSearch Security Index
   command: >
     /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
@@ -85,8 +91,9 @@
 
 
 # ----------------------------------------------------------
-# Restart OpenSearch after security init
+# Restart after security init
 # ----------------------------------------------------------
+
 - name: Restart OpenSearch after security init
   systemd:
     name: opensearch
@@ -94,11 +101,12 @@
 
 
 # ----------------------------------------------------------
-# Wait again after init
+#  Wait on localhost NOT domain
 # ----------------------------------------------------------
+
 - name: Wait for OpenSearch HTTPS after security init
   wait_for:
-    host: "{{ opensearch_api_host }}"
+    host: "127.0.0.1"
     port: "{{ opensearch_http_port }}"
     delay: 10
     timeout: 120
