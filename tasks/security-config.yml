@@ -34,7 +34,7 @@
 
 
 # ----------------------------------------------------------
-# Fix TLS permissions
+# Fix TLS file permissions
 # ----------------------------------------------------------
 
 - name: Fix TLS file permissions
@@ -49,6 +49,20 @@
     - { name: "{{ opensearch_tls_key_file }}", mode: "0600" }
 
 
+
+# ----------------------------------------------------------
+# ALSO FIX security config permissions (VERY IMPORTANT)
+# ----------------------------------------------------------
+
+- name: Fix OpenSearch security config permissions
+  file:
+    path: /etc/opensearch/opensearch-security
+    owner: opensearch
+    group: opensearch
+    mode: "0700"
+    recurse: yes
+
+
 # ----------------------------------------------------------
 # Restart OpenSearch
 # ----------------------------------------------------------
@@ -58,18 +72,21 @@
     name: opensearch
     state: restarted
     enabled: true
+    daemon_reload: true
+
 
 
 # ----------------------------------------------------------
-#  Wait on localhost NOT domain
+# Wait for OpenSearch HTTPS on localhost
 # ----------------------------------------------------------
 
 - name: Wait for OpenSearch HTTPS
   wait_for:
     host: "127.0.0.1"
     port: "{{ opensearch_http_port }}"
-    delay: 10
-    timeout: 120
+    delay: 15
+    timeout: 180
+
 
 
 # ----------------------------------------------------------
@@ -86,8 +103,8 @@
     -cert {{ opensearch_certs_dir }}/{{ opensearch_tls_cert_file }}
     -key {{ opensearch_certs_dir }}/{{ opensearch_tls_key_file }}
   register: security_init
-  failed_when: false
   changed_when: true
+
 
 
 # ----------------------------------------------------------
@@ -100,13 +117,14 @@
     state: restarted
 
 
+
 # ----------------------------------------------------------
-#  Wait on localhost NOT domain
+# Final wait
 # ----------------------------------------------------------
 
 - name: Wait for OpenSearch HTTPS after security init
   wait_for:
     host: "127.0.0.1"
     port: "{{ opensearch_http_port }}"
-    delay: 10
-    timeout: 120
+    delay: 15
+    timeout: 180
