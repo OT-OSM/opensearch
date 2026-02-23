@@ -24,15 +24,10 @@ plugins.security.allow_unsafe_democertificates: false
 # ===========================
 
 plugins.security.ssl.transport.enabled: true
-
 plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
-
 plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
-
 plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_root_ca_path }}"
-
 plugins.security.ssl.transport.enforce_hostname_verification: false
-
 
 
 # ===========================
@@ -40,47 +35,38 @@ plugins.security.ssl.transport.enforce_hostname_verification: false
 # ===========================
 
 plugins.security.ssl.http.enabled: true
-
 plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
-
 plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
-
 plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
 
 
-
 # ===========================
-# REQUIRED Distinguished Names
+# Admin Distinguished Name
+# MUST match Let's Encrypt cert CN
 # ===========================
 
 plugins.security.authcz.admin_dn:
-{% for dn in opensearch_admin_dn %}
-  - "{{ dn }}"
-{% endfor %}
+  - "CN=opstree.dev"
 
+
+# ===========================
+# Node Distinguished Name
+# MUST match same cert CN
+# ===========================
 
 plugins.security.nodes_dn:
-{% for dn in opensearch_nodes_dn %}
-  - "{{ dn }}"
-{% endfor %}
-
+  - "CN=opstree.dev"
 
 
 {% else %}
 
 plugins.security.allow_unsafe_democertificates: true
 
-
 plugins.security.ssl.transport.enabled: true
-
 plugins.security.ssl.transport.pemcert_filepath: esnode.pem
-
 plugins.security.ssl.transport.pemkey_filepath: esnode-key.pem
-
 plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
 
-
 plugins.security.ssl.http.enabled: false
-
 
 {% endif %}
