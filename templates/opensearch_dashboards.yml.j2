@@ -13,7 +13,11 @@ server.host: "{{ opensearch_dashboards_host }}"
 {% if opensearch_use_tls | bool %}
 opensearch.hosts:
   - "https://{{ opensearch_dashboards_opensearch_host }}"
+
 opensearch.ssl.verificationMode: none
+opensearch.ssl.certificateAuthorities:
+  - /etc/opensearch/certs/chain.pem
+
 {% else %}
 opensearch.hosts:
   - "http://{{ opensearch_dashboards_opensearch_host }}"
@@ -34,13 +38,13 @@ opensearch_security.enabled: true
 opensearch_security.auth.type: "basicauth"
 
 # ===========================
-# TLS
+# TLS (Browser → Dashboards)
 # ===========================
 
 {% if opensearch_use_tls | bool %}
 server.ssl.enabled: true
-server.ssl.certificate: certs/node.pem
-server.ssl.key: certs/node-key.pem
+server.ssl.certificate: /etc/opensearch/certs/fullchain.pem
+server.ssl.key: /etc/opensearch/certs/privkey.pem
 {% else %}
 server.ssl.enabled: false
 {% endif %}
