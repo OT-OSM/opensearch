@@ -1,44 +1,4 @@
 # ===========================
-# OpenSearch Configuration
-# ===========================
-
-cluster.name: "{{ opensearch_cluster_name }}"
-node.name: "{{ opensearch_node_name }}"
-
-path.data: "{{ opensearch_data_path }}"
-path.logs: "{{ opensearch_logs_path }}"
-
-# ===========================
-# Network Configuration
-# ===========================
-
-network.host: "{{ opensearch_network_host }}"
-http.port: {{ opensearch_http_port }}
-transport.port: {{ opensearch_transport_port }}
-
-# ===========================
-# Discovery
-# ===========================
-
-discovery.type: single-node
-
-# ===========================
-# Node Roles
-# ===========================
-
-node.roles:
-{% for role in opensearch_node_roles %}
-  - "{{ role }}"
-{% endfor %}
-
-# ===========================
-# Bootstrap
-# ===========================
-
-bootstrap.memory_lock: false
-bootstrap.system_call_filter: false
-
-# ===========================
 # Security Plugin
 # ===========================
 
@@ -53,6 +13,10 @@ plugins.security.restapi.roles_enabled:
 
 {% if opensearch_use_tls | bool %}
 
+#  REQUIRED LINE
+plugins.security.allow_unsafe_democertificates: false
+
+
 # ===========================
 # Transport TLS
 # ===========================
@@ -62,6 +26,7 @@ plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_c
 plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
 plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_root_ca_path }}"
 plugins.security.ssl.transport.enforce_hostname_verification: false
+
 
 # ===========================
 # HTTP TLS
@@ -84,19 +49,3 @@ plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
 plugins.security.ssl.http.enabled: false
 
 {% endif %}
-
-# ===========================
-# CRITICAL — REQUIRED FOR TLS
-# ===========================
-
-plugins.security.authcz.admin_dn:
-  - "CN=*.opstree.dev"
-
-plugins.security.nodes_dn:
-  - "CN=*.opstree.dev"
-
-# ===========================
-# Compatibility
-# ===========================
-
-compatibility.override_main_response_version: true
