@@ -1,4 +1,20 @@
 # ===========================
+# Cluster
+# ===========================
+
+cluster.name: "{{ opensearch_cluster_name }}"
+node.name: "{{ inventory_hostname }}"
+
+path.data: /var/lib/opensearch
+path.logs: /var/log/opensearch
+
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+
+discovery.type: single-node
+
+
+# ===========================
 # Security Plugin
 # ===========================
 
@@ -13,16 +29,16 @@ plugins.security.restapi.roles_enabled:
   - security_rest_api_access
 
 
-# ===========================
-# TLS MODE
-# ===========================
+# ==========================================================
+# TLS MODE (Production)
+# ==========================================================
 
 {% if opensearch_use_tls | bool %}
 
 plugins.security.allow_unsafe_democertificates: false
 
 
-# Transport TLS
+# Transport TLS (REQUIRED)
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
 plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
@@ -51,23 +67,36 @@ plugins.security.nodes_dn:
 {% endfor %}
 
 
-# ===========================
-# HTTP MODE (NO TLS)
-# ===========================
+# ==========================================================
+# HTTP MODE (Dev / No certs)
+# ==========================================================
 
 {% else %}
 
-plugins.security.allow_unsafe_democertificates: false
+# MUST be true to use demo certs
+plugins.security.allow_unsafe_democertificates: true
 
-plugins.security.ssl.transport.enabled: false
 
+# Transport TLS REQUIRED for security plugin
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: esnode.pem
+plugins.security.ssl.transport.pemkey_filepath: esnode-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+
+# HTTP TLS disabled → HTTP only
 plugins.security.ssl.http.enabled: false
 
 
-# Admin DN still required
+# Admin DN (demo)
 plugins.security.authcz.admin_dn:
-{% for dn in opensearch_admin_dn %}
-  - "{{ dn }}"
-{% endfor %}
+  - "CN=kirk,OU=client,O=client,L=test,C=de"
+
+
+# Node DN (demo)
+plugins.security.nodes_dn:
+  - "CN=node,OU=client,O=client,L=test,C=de"
+
 
 {% endif %}
