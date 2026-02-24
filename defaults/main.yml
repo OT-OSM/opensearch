@@ -23,11 +23,11 @@ opensearch_node_roles:
   - cluster_manager
   - data
   - ingest
-opensearch_discovery_seed_hosts: []
-opensearch_initial_master_nodes: []
+opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
+opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
 
 # ===========================
-# Cluster Configuration
+# Domain / API Hostnames
 # ===========================
 
 opensearch_domain_name: "{{ undef() }}"
@@ -95,7 +95,6 @@ opensearch_use_tls: false
 # The role does NOT auto-generate certificates.
 
 # HTTP layer (External Client-to-Node)
-# HTTP layer (External Client-to-Node)
 opensearch_root_ca_path: "/etc/opensearch/chain.pem"
 opensearch_node_cert_path: "/etc/opensearch/fullchain.pem"
 opensearch_node_key_path: "/etc/opensearch/privkey.pem"
@@ -120,9 +119,10 @@ opensearch_nodes_dn: []
 opensearch_enable_sso: false
 opensearch_auth_type: "basic" # Options: basic, openid, saml
 opensearch_admin_username: "admin"
-opensearch_admin_password: "Strong@321"
+opensearch_admin_password: "Strong@321"  # CHANGE THIS — use Ansible Vault in production
 opensearch_admin_password_hash: ""
-opensearch_kibanaserver_password: "Strong@321"
+opensearch_kibanaserver_username: "kibanaserver"
+opensearch_kibanaserver_password: "Strong@321"  # CHANGE THIS — use Ansible Vault in production
 opensearch_kibanaserver_password_hash: ""
 
 # OpenID Connect Configuration (when opensearch_auth_type == 'openid')

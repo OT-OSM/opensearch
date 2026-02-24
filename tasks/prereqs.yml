@@ -20,24 +20,6 @@
     state: present
   when: ansible_os_family == 'RedHat'
 
-# ===========================
-# Kernel Tuning
-# ===========================
-- name: Set vm.max_map_count
-  become: true
-  ansible.posix.sysctl:
-    name: vm.max_map_count
-    value: "{{ opensearch_vm_max_map_count }}"
-    state: present
-    reload: true
-
-- name: Disable swap (if configured)
-  become: true
-  ansible.builtin.command: swapoff -a
-  when:
-    - ansible_swaptotal_mb | default(0) > 0
-    - opensearch_disable_swap | bool
-  changed_when: false
 
 # ===========================
 # Cluster Connectivity Check

@@ -137,8 +137,12 @@
   ansible.builtin.template:
     src: opensearch.env.j2
     dest: /etc/default/opensearch
+    owner: root
+    group: opensearch
+    mode: "0640"
   when: ansible_os_family == "Debian"
   notify: Restart OpenSearch
+  no_log: true
 
 # ===========================
 # Security Plugin
@@ -253,7 +257,7 @@
     daemon_reload: true
 
 # ===========================
-# Start OpenSearch service 
+# Start OpenSearch service
 # ===========================
 
 - name: Start OpenSearch service

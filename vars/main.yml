@@ -1,6 +1,5 @@
 ---
-# Internal/derived variables — override with caution
-opensearch_admin_password: "Strong@321"
-opensearch_bootstrap_cluster: true
-opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
-opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
+# Internal/derived variables
+# Note: Role-level vars have higher precedence than defaults.
+# Only place variables here that should NOT be overridable by users.
+# Seed hosts and master nodes are now in defaults/main.yml so users can override them.
