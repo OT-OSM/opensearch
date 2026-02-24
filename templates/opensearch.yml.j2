@@ -13,16 +13,16 @@ plugins.security.restapi.roles_enabled:
   - security_rest_api_access
 
 
+# ===========================
+# TLS MODE
+# ===========================
+
 {% if opensearch_use_tls | bool %}
 
-# MUST be false when using real certificates
 plugins.security.allow_unsafe_democertificates: false
 
 
-# ===========================
 # Transport TLS
-# ===========================
-
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
 plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
@@ -30,43 +30,44 @@ plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
 
-# ===========================
 # HTTP TLS
-# ===========================
-
 plugins.security.ssl.http.enabled: true
 plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
 plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
 plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
 
 
-# ===========================
-# Admin Distinguished Name
-# MUST match Let's Encrypt cert CN
-# ===========================
-
+# Admin DN
 plugins.security.authcz.admin_dn:
-  - "CN=opstree.dev"
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
 
-# ===========================
-# Node Distinguished Name
-# MUST match same cert CN
-# ===========================
-
+# Node DN
 plugins.security.nodes_dn:
-  - "CN=opstree.dev"
+{% for dn in opensearch_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
+
+# ===========================
+# HTTP MODE (NO TLS)
+# ===========================
 
 {% else %}
 
-plugins.security.allow_unsafe_democertificates: true
+plugins.security.allow_unsafe_democertificates: false
 
-plugins.security.ssl.transport.enabled: true
-plugins.security.ssl.transport.pemcert_filepath: esnode.pem
-plugins.security.ssl.transport.pemkey_filepath: esnode-key.pem
-plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
+plugins.security.ssl.transport.enabled: false
 
 plugins.security.ssl.http.enabled: false
+
+
+# Admin DN still required
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
 {% endif %}
