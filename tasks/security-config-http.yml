@@ -1,6 +1,6 @@
 ---
 # ===========================
-# Security Verification (HTTP mode)
+# Determine protocol
 # ===========================
 
 - name: Determine protocol
@@ -8,9 +8,13 @@
     _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
 
+# ===========================
+# Wait for OpenSearch
+# ===========================
+
 - name: Wait for OpenSearch to accept authenticated requests
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
+    url: "{{ _opensearch_protocol }}://localhost:{{ opensearch_http_port }}/_cluster/health"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -23,8 +27,13 @@
   until: health_with_auth.status == 200
 
 
+# ===========================
+# Debug output
+# ===========================
+
 - name: Display authenticated cluster health
-  ansible.builtin.debug:
+  debug:
     msg: >
-      Security active — authenticated as {{ opensearch_admin_username }}
-      | Cluster status: {{ health_with_auth.json.status }}
+      OpenSearch Security Active
+      Protocol: {{ _opensearch_protocol }}
+      Status: {{ health_with_auth.json.status }}
