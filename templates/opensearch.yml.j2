@@ -30,7 +30,7 @@ plugins.security.restapi.roles_enabled:
 
 
 # ==========================================================
-# TLS MODE (Production)
+# TLS MODE (HTTPS + Security)
 # ==========================================================
 
 {% if opensearch_use_tls | bool %}
@@ -38,7 +38,7 @@ plugins.security.restapi.roles_enabled:
 plugins.security.allow_unsafe_democertificates: false
 
 
-# Transport TLS (REQUIRED)
+# Transport TLS (REQUIRED always)
 plugins.security.ssl.transport.enabled: true
 plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
 plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
@@ -67,13 +67,13 @@ plugins.security.nodes_dn:
 {% endfor %}
 
 
+
 # ==========================================================
-# HTTP MODE (Dev / No certs)
+# HTTP MODE (HTTP + Security using demo certs)
 # ==========================================================
 
 {% else %}
 
-# MUST be true to use demo certs
 plugins.security.allow_unsafe_democertificates: true
 
 
@@ -89,14 +89,13 @@ plugins.security.ssl.transport.enforce_hostname_verification: false
 plugins.security.ssl.http.enabled: false
 
 
-# Admin DN (demo)
+# Demo Admin DN
 plugins.security.authcz.admin_dn:
   - "CN=kirk,OU=client,O=client,L=test,C=de"
 
 
-# Node DN (demo)
+# Demo Node DN
 plugins.security.nodes_dn:
   - "CN=node,OU=client,O=client,L=test,C=de"
-
 
 {% endif %}
