@@ -29,16 +29,6 @@
 # configuration files are preserved during package upgrades instead of being
 # overwritten by the package maintainer's version.
 
-- name: Wait for apt lock (before OpenSearch install)
-  ansible.builtin.shell: |
-    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-      echo "Waiting for apt lock..."
-      sleep 5
-    done
-  changed_when: false
-  timeout: 300
-  when: ansible_os_family == 'Debian'
-
 - name: Install OpenSearch package (Debian/Ubuntu)
   ansible.builtin.apt:
     name: "opensearch={{ opensearch_version }}"

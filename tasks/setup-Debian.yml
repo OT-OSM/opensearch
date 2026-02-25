@@ -1,22 +1,4 @@
 ---
-- name: Wait for apt lock to be released
-  ansible.builtin.shell: |
-    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-      echo "Waiting for apt lock..."
-      sleep 5
-    done
-  changed_when: false
-  timeout: 300
-
-- name: Fix broken apt dependencies
-  ansible.builtin.command: apt-get install -f -y
-  become: true
-  register: fix_broken
-  retries: 20
-  delay: 30
-  until: fix_broken is succeeded
-  changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in fix_broken.stdout"
-
 - name: Install required dependencies (Debian/Ubuntu)
   ansible.builtin.apt:
     name: "{{ opensearch_prerequisites }}"

@@ -1,14 +1,9 @@
-# ===========================
 # OpenSearch Dashboards Configuration
-# Managed by Ansible
-# ===========================
 
 server.port: {{ opensearch_dashboards_port }}
 server.host: "{{ opensearch_dashboards_host }}"
 
-# ===========================
 # OpenSearch Connection
-# ===========================
 
 {% if opensearch_use_tls | bool %}
 opensearch.hosts:
@@ -16,35 +11,29 @@ opensearch.hosts:
 
 opensearch.ssl.verificationMode: none
 opensearch.ssl.certificateAuthorities:
-  - /etc/opensearch/certs/chain.pem
+  - {{ opensearch_dashboards_config_dir }}/certs/root-ca.pem
 
 {% else %}
 opensearch.hosts:
   - "http://{{ opensearch_dashboards_opensearch_host }}"
 {% endif %}
 
-# ===========================
-# BACKEND SERVICE AUTH
-# ===========================
+# Backend Service Auth
 
 opensearch.username: "{{ opensearch_kibanaserver_username }}"
 opensearch.password: "{{ opensearch_kibanaserver_password }}"
 
-# ===========================
 # UI Security
-# ===========================
 
 opensearch_security.enabled: true
 opensearch_security.auth.type: "basicauth"
 
-# ===========================
 # TLS (Browser → Dashboards)
-# ===========================
 
 {% if opensearch_use_tls | bool %}
 server.ssl.enabled: true
-server.ssl.certificate: /etc/opensearch/certs/fullchain.pem
-server.ssl.key: /etc/opensearch/certs/privkey.pem
+server.ssl.certificate: {{ opensearch_dashboards_config_dir }}/certs/node.pem
+server.ssl.key: {{ opensearch_dashboards_config_dir }}/certs/node-key.pem
 {% else %}
 server.ssl.enabled: false
 {% endif %}

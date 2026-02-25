@@ -33,17 +33,9 @@
   ansible.builtin.include_tasks: config-node.yml
   when: opensearch_install_node | bool
 
-- name: Configure security (TLS/Auth)
+- name: Configure security
   ansible.builtin.include_tasks: security-config.yml
-  when:
-    - opensearch_install_node | bool
-    - opensearch_use_tls | bool
-
-- name: Configure security (HTTP Auth)
-  ansible.builtin.include_tasks: security-config-http.yml
-  when:
-    - opensearch_install_node | bool
-    - not opensearch_use_tls | bool
+  when: opensearch_install_node | bool
 
 - name: Flush handlers to ensure OpenSearch is started
   ansible.builtin.meta: flush_handlers
@@ -70,4 +62,17 @@
 
 - name: Verify cluster health
   ansible.builtin.include_tasks: verify-cluster.yml
-  when: opensearch_install_node | bool
+  when:
+    - opensearch_install_node | bool
+    - opensearch_enable_cluster_mode | bool
+
+- name: Verify network connectivity between nodes (Port 9300)
+  ansible.builtin.wait_for:
+    host: "{{ item }}"
+    port: 9300
+    state: started
+    timeout: 30
+  loop: "{{ opensearch_discovery_seed_hosts }}"
+  when:
+    - opensearch_enable_cluster_mode | bool
+    - opensearch_discovery_seed_hosts | length > 0

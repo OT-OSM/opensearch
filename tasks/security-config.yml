@@ -1,7 +1,5 @@
 ---
-# ----------------------------------------------------------
 # Ensure cert directory exists
-# ----------------------------------------------------------
 
 - name: Ensure OpenSearch certs directory exists
   ansible.builtin.file:
@@ -11,9 +9,41 @@
     group: opensearch
     mode: "0750"
 
-# ----------------------------------------------------------
+- name: Copy TLS certificates to certs directory
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: opensearch
+    group: opensearch
+    mode: "{{ item.mode }}"
+    remote_src: true
+  loop:
+    - {
+        src: "{{ opensearch_root_ca_path }}",
+        dest: "{{ opensearch_certs_dir }}/chain.pem",
+        mode: "0644",
+      }
+    - {
+        src: "{{ opensearch_admin_cert_path }}",
+        dest: "{{ opensearch_certs_dir }}/admin.pem",
+        mode: "0644",
+      }
+    - {
+        src: "{{ opensearch_admin_key_path }}",
+        dest: "{{ opensearch_certs_dir }}/admin-key.pem",
+        mode: "0600",
+      }
+  when: opensearch_use_tls | bool
+  ignore_errors: true
+
+- name: Update certificate paths to internal directory
+  ansible.builtin.set_fact:
+    opensearch_root_ca_path: "{{ opensearch_certs_dir }}/chain.pem"
+    opensearch_admin_cert_path: "{{ opensearch_certs_dir }}/admin.pem"
+    opensearch_admin_key_path: "{{ opensearch_certs_dir }}/admin-key.pem"
+  when: opensearch_use_tls | bool
+
 # Verify TLS files exist
-# ----------------------------------------------------------
 
 - name: Check TLS certificate files
   ansible.builtin.stat:
@@ -23,16 +53,17 @@
     - "{{ opensearch_admin_cert_path }}"
     - "{{ opensearch_admin_key_path }}"
   register: tls_files
+  when: opensearch_use_tls | bool
 
 - name: Fail if TLS file missing
   ansible.builtin.fail:
     msg: "Missing TLS file: {{ item.item }}"
-  when: not item.stat.exists
+  when:
+    - opensearch_use_tls | bool
+    - not item.stat.exists
   loop: "{{ tls_files.results }}"
 
-# ----------------------------------------------------------
 # Fix TLS permissions
-# ----------------------------------------------------------
 
 - name: Fix TLS file permissions
   ansible.builtin.file:
@@ -44,10 +75,9 @@
     - { path: "{{ opensearch_root_ca_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_cert_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_key_path }}", mode: "0600" }
+  when: opensearch_use_tls | bool
 
-# ----------------------------------------------------------
 # Fix security config permissions
-# ----------------------------------------------------------
 
 - name: Fix OpenSearch security config permissions
   ansible.builtin.file:
@@ -57,9 +87,7 @@
     mode: "0700"
     recurse: true
 
-# ----------------------------------------------------------
 # Restart OpenSearch
-# ----------------------------------------------------------
 
 - name: Restart OpenSearch
   ansible.builtin.systemd:
@@ -67,26 +95,39 @@
     state: restarted
     enabled: true
     daemon_reload: true
+  when: opensearch_use_tls | bool
 
-# ----------------------------------------------------------
 # Wait for OpenSearch
-# ----------------------------------------------------------
 
 - name: Wait for OpenSearch HTTPS
   ansible.builtin.wait_for:
-    host: "127.0.0.1"
+    host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_http_port }}"
     delay: 15
     timeout: 180
+  when: opensearch_use_tls | bool
 
-# ----------------------------------------------------------
-# Initialize Security Index (Idempotent)
-# ----------------------------------------------------------
+# Deploy Security Config templates to the security config dir
 
-- name: Check if security index was already initialized
-  ansible.builtin.stat:
-    path: "{{ opensearch_config_dir }}/.security_initialized"
-  register: security_initialized_marker
+- name: Deploy internal_users.yml to security config dir
+  ansible.builtin.template:
+    src: internal_users.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/internal_users.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: opensearch_use_tls | bool
+
+- name: Deploy roles_mapping.yml to security config dir
+  ansible.builtin.template:
+    src: roles_mapping.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/roles_mapping.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: opensearch_use_tls | bool
+
+# Initialize Security Index
 
 - name: Initialize OpenSearch Security Index
   ansible.builtin.command: >
@@ -97,37 +138,55 @@
     -cacert "{{ opensearch_root_ca_path }}"
     -cert "{{ opensearch_admin_cert_path }}"
     -key "{{ opensearch_admin_key_path }}"
-    -h localhost
+    -h "{{ opensearch_api_host }}"
   register: security_init
-  when: not security_initialized_marker.stat.exists
+  when: opensearch_use_tls | bool
+  changed_when: "'Done with success' in security_init.stdout"
 
-- name: Create security initialization marker
-  ansible.builtin.file:
-    path: "{{ opensearch_config_dir }}/.security_initialized"
-    state: touch
-    owner: opensearch
-    group: opensearch
-    mode: "0644"
-  when: security_init is changed
-
-# ----------------------------------------------------------
 # Restart after init
-# ----------------------------------------------------------
 
 - name: Restart OpenSearch after security init
   ansible.builtin.systemd:
     name: opensearch
     state: restarted
-  when: security_init is changed
+  when:
+    - opensearch_use_tls | bool
+    - security_init is changed
 
-# ----------------------------------------------------------
 # Final wait
-# ----------------------------------------------------------
 
 - name: Wait for OpenSearch HTTPS after security init
   ansible.builtin.wait_for:
-    host: "127.0.0.1"
+    host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_http_port }}"
     delay: 15
     timeout: 180
-  when: security_init is changed
+  when:
+    - opensearch_use_tls | bool
+    - security_init is changed
+
+# Security Verification (Merged from security-config-http.yml)
+
+- name: Determine protocol
+  ansible.builtin.set_fact:
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+
+- name: Wait for OpenSearch to accept authenticated requests
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: 200
+  register: health_with_auth
+  retries: 30
+  delay: 10
+  until: health_with_auth.status == 200
+
+- name: Display authenticated cluster health
+  ansible.builtin.debug:
+    msg: >
+      Connected to {{ opensearch_api_host }}
+      | Cluster status: {{ health_with_auth.json.status }}

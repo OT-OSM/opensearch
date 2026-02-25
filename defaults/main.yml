@@ -119,10 +119,10 @@ opensearch_nodes_dn: []
 opensearch_enable_sso: false
 opensearch_auth_type: "basic" # Options: basic, openid, saml
 opensearch_admin_username: "admin"
-opensearch_admin_password: "Strong@321"  # CHANGE THIS — use Ansible Vault in production
+opensearch_admin_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_admin_password_hash: ""
 opensearch_kibanaserver_username: "kibanaserver"
-opensearch_kibanaserver_password: "Strong@321"  # CHANGE THIS — use Ansible Vault in production
+opensearch_kibanaserver_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_kibanaserver_password_hash: ""
 
 # OpenID Connect Configuration (when opensearch_auth_type == 'openid')
@@ -160,25 +160,17 @@ opensearch_custom_internal_users: []
 #     password_hash: "$2a$12$..."
 #     backend_roles: ["readall"]
 
-# ===========================
 # Metrics / Monitoring
-# ===========================
 opensearch_metrics_enabled: false
 opensearch_prometheus_port: 9600
 opensearch_performance_analyzer_enabled: false
 
-# ===========================
 # OpenSearch Dashboards
-# ===========================
 opensearch_dashboards_public_protocol: "http"
 opensearch_dashboards_port: 5601
 opensearch_dashboards_host: "0.0.0.0"
 opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
 opensearch_dashboards_admin_username: "admin"
-
-# ===========================
-# OpenSearch Dashboards
-# ===========================
 
 opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
 opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"

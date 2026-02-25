@@ -1,20 +1,29 @@
 ---
-# ===========================
 # Cluster Health Verification
-# ===========================
 
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
     _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
+- name: Verify network connectivity between nodes (Port 9300)
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[item]['ansible_default_ipv4']['address'] | default(item) }}"
+    port: 9300
+    timeout: 5
+    state: started
+  loop: "{{ ansible_play_hosts }}"
+  when:
+    - opensearch_enable_cluster_mode | bool
+    - ansible_play_hosts | length > 1
+    - item != inventory_hostname
+  ignore_errors: true
 
 - name: Wait for OpenSearch port to be open
   ansible.builtin.wait_for:
     port: "{{ opensearch_http_port }}"
-    host: "127.0.0.1"
+    host: "{{ opensearch_api_host }}"
     state: started
     timeout: 300
-
 
 - name: Wait for OpenSearch cluster health
   ansible.builtin.uri:
@@ -31,7 +40,6 @@
   retries: 120
   delay: 5
 
-
 - name: Display cluster health status
   ansible.builtin.debug:
     msg: >-
@@ -41,7 +49,6 @@
       Data Nodes: {{ cluster_health.json.number_of_data_nodes | default(0) }}
   when: cluster_health.status | default(0) == 200
 
-
 - name: Fail if OpenSearch is not healthy
   ansible.builtin.fail:
     msg: >-
@@ -50,10 +57,7 @@
       Error: {{ cluster_health.msg | default('No response') }}
   when: cluster_health.status | default(0) != 200
 
-
-# ===========================
 # Default Index Template
-# ===========================
 
 - name: Apply default index template
   ansible.builtin.uri:

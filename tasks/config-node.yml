@@ -1,7 +1,5 @@
 ---
-# ===========================
 # User & Group
-# ===========================
 
 - name: Ensure opensearch group exists
   ansible.builtin.group:
@@ -17,65 +15,31 @@
     group: opensearch
     create_home: false
 
-# ===========================
-# Password Hashing
-# ===========================
-
-- name: Generate admin password hash using OpenSearch hash tool
-  ansible.builtin.shell: |
-    JAVA_HOME=/usr/share/opensearch/jdk /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p '{{ opensearch_admin_password }}' 2>/dev/null | tail -1
-  register: admin_hash_result
-  changed_when: false
-  no_log: true
-
 - name: Set admin password hash fact
   ansible.builtin.set_fact:
-    opensearch_admin_password_hash: "{{ admin_hash_result.stdout }}"
-  no_log: true
-
-- name: Generate kibanaserver password hash using OpenSearch hash tool
-  ansible.builtin.shell: |
-    JAVA_HOME=/usr/share/opensearch/jdk /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p '{{ opensearch_kibanaserver_password }}' 2>/dev/null | tail -1
-  register: kibana_hash_result
-  changed_when: false
+    opensearch_admin_password_hash: "{{ opensearch_admin_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
 
 - name: Set kibanaserver password hash fact
   ansible.builtin.set_fact:
-    opensearch_kibanaserver_password_hash: "{{ kibana_hash_result.stdout }}"
+    opensearch_kibanaserver_password_hash: "{{ opensearch_kibanaserver_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
 
-# ===========================
 # Directories
-# ===========================
 
-- name: Create OpenSearch config directory
+- name: Create OpenSearch required directories
   ansible.builtin.file:
-    path: "{{ opensearch_config_dir }}"
+    path: "{{ item }}"
     state: directory
     owner: opensearch
     group: opensearch
     mode: "0750"
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_path }}"
+    - "{{ opensearch_logs_path }}"
 
-- name: Create OpenSearch data directory
-  ansible.builtin.file:
-    path: "{{ opensearch_data_path }}"
-    state: directory
-    owner: opensearch
-    group: opensearch
-    mode: "0750"
-
-- name: Create OpenSearch logs directory
-  ansible.builtin.file:
-    path: "{{ opensearch_logs_path }}"
-    state: directory
-    owner: opensearch
-    group: opensearch
-    mode: "0750"
-
-# ===========================
 # Deploy Configuration Files
-# ===========================
 
 - name: Deploy opensearch.yml
   ansible.builtin.template:
@@ -95,9 +59,7 @@
     mode: "0640"
   notify: Restart OpenSearch
 
-# ===========================
 # System Limits
-# ===========================
 
 - name: Configure system limits
   ansible.builtin.lineinfile:
@@ -112,9 +74,7 @@
     - "opensearch soft memlock unlimited"
     - "opensearch hard memlock unlimited"
 
-# ===========================
 # Systemd Override
-# ===========================
 
 - name: Create systemd override directory
   ansible.builtin.file:
@@ -129,9 +89,7 @@
     - Reload systemd
     - Restart OpenSearch
 
-# ===========================
 # Environment File
-# ===========================
 
 - name: Deploy environment file (Debian)
   ansible.builtin.template:
@@ -144,9 +102,7 @@
   notify: Restart OpenSearch
   no_log: true
 
-# ===========================
 # Security Plugin
-# ===========================
 
 - name: Check if security plugin exists
   ansible.builtin.stat:
@@ -159,9 +115,7 @@
   when: not security_plugin.stat.exists
   notify: Restart OpenSearch
 
-# ===========================
 # Fix Permissions
-# ===========================
 
 - name: Fix plugin directory permissions
   ansible.builtin.file:
@@ -170,9 +124,7 @@
     group: opensearch
     recurse: true
 
-# ===========================
 # Install Demo Certs (HTTP mode only)
-# ===========================
 
 - name: Check if demo certs already installed
   ansible.builtin.stat:
@@ -223,10 +175,7 @@
   when: not opensearch_use_tls | bool
   failed_when: false
 
-# ===========================
 # Deploy Security Config (HTTP mode — before first boot)
-# ===========================
-# allow_default_init_securityindex loads from this dir on first boot
 
 - name: Deploy custom internal_users.yml to security config dir
   ansible.builtin.template:
@@ -246,9 +195,7 @@
     mode: "0600"
   when: not opensearch_use_tls | bool
 
-# ===========================
 # Service Management
-# ===========================
 
 - name: Enable OpenSearch service
   ansible.builtin.systemd:
@@ -256,9 +203,7 @@
     enabled: true
     daemon_reload: true
 
-# ===========================
 # Start OpenSearch service
-# ===========================
 
 - name: Start OpenSearch service
   ansible.builtin.systemd:

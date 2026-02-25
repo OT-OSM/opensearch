@@ -1,45 +1,13 @@
 ---
-# ===========================
-# Java Installation (Semaphore SAFE)
-# ===========================
+# Java Validation
 
-- name: Install Java (Debian/Ubuntu) - non interactive
-  become: true
-  ansible.builtin.shell: |
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
-    apt-get install -y {{ opensearch_java_package }}
-  args:
-    executable: /bin/bash
-  when: ansible_os_family == 'Debian'
+- name: Validate Java is installed
+  ansible.builtin.command: java -version
+  register: java_check
+  changed_when: false
+  failed_when: java_check.rc != 0
 
-- name: Install Java (RedHat/Amazon)
-  become: true
-  ansible.builtin.package:
-    name: "{{ opensearch_java_package }}"
-    state: present
-  when: ansible_os_family == 'RedHat'
-
-
-# ===========================
-# Cluster Connectivity Check
-# ===========================
-- name: Verify network connectivity between nodes (Port 9300)
-  ansible.builtin.wait_for:
-    host: "{{ hostvars[item]['ansible_default_ipv4']['address'] | default(item) }}"
-    port: 9300
-    timeout: 5
-    state: started
-  loop: "{{ ansible_play_hosts }}"
-  when:
-    - opensearch_enable_cluster_mode | bool
-    - ansible_play_hosts | length > 1
-    - item != inventory_hostname
-  ignore_errors: true
-
-# ===========================
 # Hostname Configuration
-# ===========================
 - name: Set hostname for OpenSearch node
   become: true
   ansible.builtin.hostname:
@@ -47,9 +15,7 @@
   when: opensearch_configure_hostname | bool
   failed_when: false
 
-# ===========================
 # Kernel Tuning
-# ===========================
 - name: Set vm.max_map_count
   become: true
   ansible.posix.sysctl:
@@ -73,22 +39,3 @@
     - ansible_swaptotal_mb | default(0) > 0
     - opensearch_disable_swap | bool
   changed_when: false
-
-# ===========================
-# Data Purge (Fresh Install)
-# ===========================
-- name: Stop OpenSearch before purging data
-  become: true
-  ansible.builtin.systemd:
-    name: opensearch
-    state: stopped
-  when: opensearch_purge_data | bool
-  ignore_errors: true
-  failed_when: false
-
-- name: Purge OpenSearch data directory
-  become: true
-  ansible.builtin.file:
-    path: "{{ opensearch_data_path }}"
-    state: absent
-  when: opensearch_purge_data | bool

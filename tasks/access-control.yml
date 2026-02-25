@@ -1,33 +1,15 @@
 ---
-# ===========================
 # Access Control Configuration
-# ===========================
 # Only runs when opensearch_access_control_enabled is true and OpenSearch is reachable
 
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
     _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
-- name: Wait for OpenSearch to be ready for access control
-  ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/"
-    method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    status_code: 200
-  register: _os_ready
-  until: _os_ready.status == 200
-  retries: 30
-  delay: 5
-
-# ===========================
 # Custom Roles
-# ===========================
 - name: Create custom OpenSearch roles
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_plugins/_security/api/roles/{{ item.name }}"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/roles/{{ item.name }}"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -42,12 +24,10 @@
   loop: "{{ opensearch_custom_roles }}"
   when: opensearch_custom_roles | length > 0
 
-# ===========================
 # Custom Role Mappings
-# ===========================
 - name: Create custom role mappings
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item.role }}"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item.role }}"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -62,12 +42,10 @@
   loop: "{{ opensearch_custom_role_mappings }}"
   when: opensearch_custom_role_mappings | length > 0
 
-# ===========================
 # Custom Internal Users
-# ===========================
 - name: Create custom internal users
   ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://127.0.0.1:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ item.name }}"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ item.name }}"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"

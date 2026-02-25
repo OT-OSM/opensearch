@@ -1,7 +1,5 @@
 ---
-# ===========================
 # Metrics Configuration
-# ===========================
 
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
@@ -14,9 +12,7 @@
       - opensearch_api_host | length > 0
     fail_msg: "opensearch_api_host is not defined"
 
-# ===========================
 # Wait for OpenSearch API
-# ===========================
 
 - name: Wait for OpenSearch cluster health API
   ansible.builtin.uri:
@@ -31,11 +27,9 @@
   retries: 30
   delay: 10
   until: opensearch_health.status == 200
-  when: opensearch_metrics_enabled
+  when: opensearch_metrics_enabled | bool
 
-# ===========================
 # Wait for Performance Analyzer (non-fatal)
-# ===========================
 
 - name: Wait for Performance Analyzer port
   ansible.builtin.wait_for:
@@ -47,9 +41,7 @@
   ignore_errors: true
   register: pa_port_check
 
-# ===========================
 # Verify Prometheus Metrics (non-fatal)
-# ===========================
 
 - name: Verify Prometheus metrics endpoint
   ansible.builtin.uri:
