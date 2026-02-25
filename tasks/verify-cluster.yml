@@ -4,7 +4,7 @@
 # ===========================
 
 - name: Determine protocol for API calls
-  set_fact:
+  ansible.builtin.set_fact:
     _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
 

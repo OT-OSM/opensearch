@@ -5,13 +5,24 @@
 cluster.name: "{{ opensearch_cluster_name }}"
 node.name: "{{ inventory_hostname }}"
 
-path.data: /var/lib/opensearch
-path.logs: /var/log/opensearch
+path.data: {{ opensearch_data_path }}
+path.logs: {{ opensearch_logs_path }}
 
 network.host: {{ opensearch_network_host }}
 http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
 
+{% if opensearch_bootstrap_memory_lock | bool %}
+bootstrap.memory_lock: true
+{% endif %}
+
+{% if opensearch_enable_cluster_mode | bool and (opensearch_discovery_seed_hosts | length > 0) %}
+node.roles: {{ opensearch_node_roles | to_json }}
+discovery.seed_hosts: {{ opensearch_discovery_seed_hosts | to_json }}
+cluster.initial_master_nodes: {{ opensearch_initial_master_nodes | to_json }}
+{% else %}
 discovery.type: single-node
+{% endif %}
 
 
 # ===========================

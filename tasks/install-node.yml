@@ -54,6 +54,7 @@
   retries: 20
   delay: 30
   when: ansible_os_family == 'Debian'
+  no_log: true
 
 - name: Install OpenSearch package (RedHat/Amazon)
   ansible.builtin.package:
@@ -66,3 +67,4 @@
   retries: 5
   delay: 10
   when: ansible_os_family == 'RedHat'
+  no_log: true

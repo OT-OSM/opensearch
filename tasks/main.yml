@@ -4,6 +4,15 @@
     msg: "OS family '{{ ansible_os_family }}' is not supported. Supported: Debian, RedHat"
   when: ansible_os_family not in ['Debian', 'RedHat']
 
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - opensearch_domain_name is defined
+      - opensearch_domain_name | length > 0
+    fail_msg: >-
+      'opensearch_domain_name' must be defined and non-empty.
+      It is used for API connectivity checks. Set it to your cluster domain or IP.
+
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
@@ -31,7 +40,7 @@
     - opensearch_use_tls | bool
 
 - name: Configure security (HTTP Auth)
-  include_tasks: security-config-http.yml
+  ansible.builtin.include_tasks: security-config-http.yml
   when:
     - opensearch_install_node | bool
     - not opensearch_use_tls | bool

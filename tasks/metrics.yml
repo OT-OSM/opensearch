@@ -4,22 +4,22 @@
 # ===========================
 
 - name: Determine protocol for API calls
-  set_fact:
+  ansible.builtin.set_fact:
     opensearch_api_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
 
 - name: Ensure API host is defined
-  assert:
+  ansible.builtin.assert:
     that:
       - opensearch_api_host is defined
       - opensearch_api_host | length > 0
     fail_msg: "opensearch_api_host is not defined"
-    
+
 # ===========================
 # Wait for OpenSearch API
 # ===========================
 
 - name: Wait for OpenSearch cluster health API
-  uri:
+  ansible.builtin.uri:
     url: "{{ opensearch_api_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
     user: "{{ opensearch_admin_username }}"
@@ -38,7 +38,7 @@
 # ===========================
 
 - name: Wait for Performance Analyzer port
-  wait_for:
+  ansible.builtin.wait_for:
     host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_prometheus_port }}"
     delay: 5
@@ -52,7 +52,7 @@
 # ===========================
 
 - name: Verify Prometheus metrics endpoint
-  uri:
+  ansible.builtin.uri:
     url: "{{ opensearch_api_protocol }}://{{ opensearch_api_host }}:{{ opensearch_prometheus_port }}/metrics"
     method: GET
     validate_certs: false
