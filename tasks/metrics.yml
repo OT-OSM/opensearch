@@ -3,7 +3,7 @@
 
 - name: Determine protocol for API calls
   ansible.builtin.set_fact:
-    opensearch_api_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+    opensearch_api_protocol: "{{ 'https' if opensearch_use_tls | bool else 'http' }}"
 
 - name: Ensure API host is defined
   ansible.builtin.assert:

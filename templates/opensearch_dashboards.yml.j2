@@ -25,7 +25,7 @@ opensearch.password: "{{ opensearch_kibanaserver_password }}"
 
 # UI Security
 
-opensearch_security.enabled: true
+opensearch_security.enabled: {{ not (opensearch_security_disabled | default(false) | bool) | lower }}
 opensearch_security.auth.type: "basicauth"
 
 # TLS (Browser → Dashboards)

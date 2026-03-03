@@ -169,7 +169,7 @@
 
 - name: Determine protocol
   ansible.builtin.set_fact:
-    _opensearch_protocol: "{{ 'https' if opensearch_use_tls else 'http' }}"
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls | bool else 'http' }}"
 
 - name: Wait for OpenSearch to accept authenticated requests
   ansible.builtin.uri:
