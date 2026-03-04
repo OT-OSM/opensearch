@@ -18,8 +18,8 @@
   ansible.builtin.uri:
     url: "{{ opensearch_api_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
     force_basic_auth: true
     validate_certs: false
     status_code: 200
