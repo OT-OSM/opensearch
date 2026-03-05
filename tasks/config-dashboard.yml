@@ -66,11 +66,18 @@
     enabled: true
     daemon_reload: true
 
+
 # Dashboards Verification
 
 - name: Set Dashboards protocol
   ansible.builtin.set_fact:
     dashboards_protocol: "{{ 'https' if opensearch_use_tls | bool else 'http' }}"
+
+- name: Wait for Dashboards port
+  ansible.builtin.wait_for:
+    host: "{{ opensearch_api_host }}"
+    port: "{{ opensearch_dashboards_port }}"
+    timeout: 180
 
 - name: Verify OpenSearch Dashboards login page reachable
   ansible.builtin.uri:
@@ -89,7 +96,7 @@
   retries: 40
   delay: 15
   until: dashboards_check.status in [200, 302]
-  
+
 - name: Display Dashboards verification result
   ansible.builtin.debug:
     msg: >
