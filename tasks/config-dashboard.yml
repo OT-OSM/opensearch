@@ -82,13 +82,14 @@
     status_code:
       - 200
       - 302
+      - 503
     timeout: 10
     validate_certs: false
   register: dashboards_check
-  retries: 30
-  delay: 10
+  retries: 40
+  delay: 15
   until: dashboards_check.status in [200, 302]
-
+  
 - name: Display Dashboards verification result
   ansible.builtin.debug:
     msg: >
