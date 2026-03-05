@@ -7,7 +7,7 @@ server.host: "{{ opensearch_dashboards_host }}"
 
 {% if opensearch_use_tls | bool %}
 opensearch.hosts:
-  - "https://{{ opensearch_dashboards_opensearch_host }}"
+  - "https://localhost:{{ opensearch_http_port }}"
 
 opensearch.ssl.verificationMode: none
 opensearch.ssl.certificateAuthorities:
@@ -15,7 +15,7 @@ opensearch.ssl.certificateAuthorities:
 
 {% else %}
 opensearch.hosts:
-  - "http://{{ opensearch_dashboards_opensearch_host }}"
+  - "http://localhost:{{ opensearch_http_port }}"
 {% endif %}
 
 # Backend Service Auth
@@ -25,7 +25,7 @@ opensearch.password: "{{ opensearch_kibanaserver_password }}"
 
 # UI Security
 
-opensearch_security.enabled: {{ not (opensearch_security_disabled | default(false) | bool) | lower }}
+opensearch_security.enabled: true
 opensearch_security.auth.type: "basicauth"
 
 # TLS (Browser → Dashboards)
