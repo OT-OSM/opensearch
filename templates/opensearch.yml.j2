@@ -105,6 +105,7 @@ plugins.security.nodes_dn:
 
 # Metrics & Performance Analyzer
 
-# {% if opensearch_metrics_enabled | bool %}
-# plugins.performance_analyzer.enabled: {{ opensearch_performance_analyzer_enabled | lower }}
-# {% endif %}
+{% if opensearch_metrics_enabled | bool %}
+plugins.performance_analyzer.enabled: {{ opensearch_performance_analyzer_enabled | lower }}
+plugins.performance_analyzer.metrics.enabled: true
+{% endif %}
