@@ -76,6 +76,9 @@
   ansible.builtin.uri:
     url: "{{ dashboards_protocol }}://{{ opensearch_api_host }}:{{ opensearch_dashboards_port }}"
     method: GET
+    user: "{{ opensearch_kibanaserver_username }}"
+    password: "{{ opensearch_kibanaserver_password }}"
+    force_basic_auth: true
     status_code:
       - 200
       - 302
