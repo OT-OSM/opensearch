@@ -127,9 +127,6 @@
 
 # ------------------------------------------------
 # Performance Analyzer Metrics Configuration
-# NOTE: Plugin is bundled with OpenSearch 2.x package install.
-#       Skipping download — envoy-proxy handles external HTTPS;
-#       direct outbound traffic to artifacts.opensearch.org is blocked.
 # ------------------------------------------------
 
 - name: Check if performance analyzer plugin exists
@@ -137,13 +134,39 @@
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
   register: pa_plugin
 
-- name: Warn if performance analyzer plugin is missing
-  ansible.builtin.debug:
-    msg: >
-      WARNING: performance-analyzer plugin not found at expected path.
-      It should be bundled with the OpenSearch {{ opensearch_version }} package.
-      Verify the package installed correctly before proceeding.
+# Download on the CONTROLLER (has internet), not the target node
+- name: Download performance analyzer plugin on controller
+  ansible.builtin.get_url:
+    url: "https://artifacts.opensearch.org/releases/plugins/opensearch-performance-analyzer/{{ opensearch_version }}/opensearch-performance-analyzer-{{ opensearch_version }}.zip"
+    dest: "/tmp/opensearch-performance-analyzer-{{ opensearch_version }}.zip"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
   when: not pa_plugin.stat.exists
+
+# Copy from controller to target node
+- name: Copy performance analyzer plugin to node
+  ansible.builtin.copy:
+    src: "/tmp/opensearch-performance-analyzer-{{ opensearch_version }}.zip"
+    dest: "/tmp/opensearch-performance-analyzer.zip"
+    mode: '0644'
+  when: not pa_plugin.stat.exists
+
+# Install plugin
+- name: Install performance analyzer plugin
+  ansible.builtin.command: >
+    /usr/share/opensearch/bin/opensearch-plugin install --batch
+    file:///tmp/opensearch-performance-analyzer.zip
+  args:
+    creates: /usr/share/opensearch/plugins/opensearch-performance-analyzer
+  when: not pa_plugin.stat.exists
+  notify: Restart OpenSearch
+
+# Re-check after install
+- name: Re-check performance analyzer plugin after install
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
+  register: pa_plugin_post
 
 # Ensure metrics directory
 - name: Ensure performance analyzer metrics directory
@@ -153,7 +176,7 @@
     owner: opensearch
     group: opensearch
     mode: "0755"
-  when: pa_plugin.stat.exists
+  when: pa_plugin_post.stat.exists
 
 # Configure webservice host
 - name: Configure performance analyzer webservice host
@@ -161,7 +184,7 @@
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^webservice-bind-host'
     line: 'webservice-bind-host = 0.0.0.0'
-  when: pa_plugin.stat.exists
+  when: pa_plugin_post.stat.exists
   notify: Restart OpenSearch
 
 # Configure metrics location
@@ -170,8 +193,17 @@
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^metrics-location'
     line: 'metrics-location = /dev/shm/performanceanalyzer/'
-  when: pa_plugin.stat.exists
+  when: pa_plugin_post.stat.exists
   notify: Restart OpenSearch
+
+# Enable PA systemd service
+- name: Enable and start performance analyzer service
+  ansible.builtin.systemd:
+    name: opensearch-performance-analyzer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: pa_plugin_post.stat.exists
 
 
 # ------------------------------------------------
