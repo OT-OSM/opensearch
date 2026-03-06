@@ -14,3 +14,8 @@
     name: opensearch-dashboards
     state: restarted
     daemon_reload: true
+    
+- name: Restart opensearch-exporter
+  ansible.builtin.systemd:
+    name: opensearch-exporter
+    state: restarted
