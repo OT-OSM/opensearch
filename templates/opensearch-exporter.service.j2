@@ -7,15 +7,14 @@ Wants=opensearch.service
 User=opensearch
 Group=opensearch
 ExecStart={{ opensearch_exporter_binary }} \
-  --es.uri=http://{{ opensearch_api_host }}:{{ opensearch_http_port }} \
+  --es.uri=http://{{ opensearch_admin_username }}:{{ opensearch_admin_password }}@{{ opensearch_api_host }}:{{ opensearch_http_port }} \
   --es.all \
   --es.indices \
   --es.shards \
-  --es.cluster_settings \
+  --collector.clustersettings \
   --web.listen-address=:{{ opensearch_exporter_port }} \
   --web.telemetry-path=/metrics \
-  --es.username={{ opensearch_admin_username }} \
-  --es.password={{ opensearch_admin_password }}
+  --log.level=info
 Restart=always
 RestartSec=10
 
