@@ -55,7 +55,6 @@
     mode: "0640"
   notify: Restart OpenSearch
 
-
 - name: Deploy jvm.options
   ansible.builtin.template:
     src: jvm.options.j2
@@ -125,22 +124,22 @@
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
 
-# Install Performance Analyzer Plugin
- 
-- name: Check if performance analyzer plugin exists
-  ansible.builtin.stat:
-    path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
-  register: pa_plugin
 
-# Install Performance Analyzer Plugin
+# Verify Performance Analyzer Plugin (already bundled with OpenSearch)
 
-- name: Install performance analyzer plugin
-  ansible.builtin.command: >
-    /usr/share/opensearch/bin/opensearch-plugin install opensearch-performance-analyzer
-  args:
-    creates: /usr/share/opensearch/plugins/opensearch-performance-analyzer
-  notify: Restart OpenSearch
-  
+- name: Get installed OpenSearch plugins
+  ansible.builtin.command: /usr/share/opensearch/bin/opensearch-plugin list
+  register: opensearch_plugins
+  changed_when: false
+
+- name: Ensure performance analyzer plugin exists
+  ansible.builtin.assert:
+    that:
+      - "'opensearch-performance-analyzer' in opensearch_plugins.stdout"
+    fail_msg: "Performance Analyzer plugin missing"
+    success_msg: "Performance Analyzer plugin present"
+
+
 # Install Demo Security Configuration (HTTP mode)
 
 - name: Install demo configuration
@@ -164,7 +163,6 @@
     mode: "0600"
   when: not opensearch_use_tls | bool
 
-
 - name: Deploy roles_mapping.yml
   ansible.builtin.template:
     src: roles_mapping.yml.j2
@@ -184,7 +182,7 @@
     daemon_reload: true
 
 
-# Start Service 
+# Start Service
 
 - name: Start OpenSearch service
   ansible.builtin.systemd:
