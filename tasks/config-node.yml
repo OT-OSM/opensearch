@@ -124,18 +124,10 @@
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
 
+
 # ------------------------------------------------
 # Performance Analyzer Metrics Configuration
 # ------------------------------------------------
-
-- name: Install performance analyzer plugin
-  ansible.builtin.command: >
-    /usr/share/opensearch/bin/opensearch-plugin install
-    https://artifacts.opensearch.org/releases/plugins/opensearch-performance-analyzer/{{ opensearch_version }}/opensearch-performance-analyzer-{{ opensearch_version }}.0.zip
-  args:
-    creates: /usr/share/opensearch/plugins/opensearch-performance-analyzer
-  notify: Restart OpenSearch
-
 
 - name: Check if performance analyzer plugin exists
   ansible.builtin.stat:
@@ -143,6 +135,27 @@
   register: pa_plugin
 
 
+# Download plugin if not present
+- name: Download performance analyzer plugin
+  ansible.builtin.get_url:
+    url: "https://artifacts.opensearch.org/releases/plugins/opensearch-performance-analyzer/{{ opensearch_version }}/opensearch-performance-analyzer-{{ opensearch_version }}.0.zip"
+    dest: /tmp/opensearch-performance-analyzer.zip
+    mode: '0644'
+  when: not pa_plugin.stat.exists
+
+
+# Install plugin
+- name: Install performance analyzer plugin
+  ansible.builtin.command: >
+    /usr/share/opensearch/bin/opensearch-plugin install
+    file:///tmp/opensearch-performance-analyzer.zip
+  args:
+    creates: /usr/share/opensearch/plugins/opensearch-performance-analyzer
+  when: not pa_plugin.stat.exists
+  notify: Restart OpenSearch
+
+
+# Ensure metrics directory
 - name: Ensure performance analyzer metrics directory
   ansible.builtin.file:
     path: /dev/shm/performanceanalyzer
@@ -150,26 +163,24 @@
     owner: opensearch
     group: opensearch
     mode: "0755"
-  when: pa_plugin.stat.exists
 
 
+# Configure webservice host
 - name: Configure performance analyzer webservice host
   ansible.builtin.lineinfile:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^webservice-bind-host'
     line: 'webservice-bind-host = 0.0.0.0'
-  when: pa_plugin.stat.exists
   notify: Restart OpenSearch
 
 
+# Configure metrics location
 - name: Configure performance analyzer metrics location
   ansible.builtin.lineinfile:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^metrics-location'
     line: 'metrics-location = /dev/shm/performanceanalyzer/'
-  when: pa_plugin.stat.exists
   notify: Restart OpenSearch
-
 
 # ------------------------------------------------
 # Security Demo Config
