@@ -99,11 +99,4 @@ plugins.security.nodes_dn:
   - "CN=esnode,OU=client,O=client,L=test,C=de"
 
 {% endif %}
-# ========================
-# Performance Analyzer
-# ========================
-{% if opensearch_performance_analyzer_enabled | default(false) | bool %}
-plugins.performance_analyzer.enabled: true
-plugins.performance_analyzer.agent.enabled: true
-plugins.performance_analyzer.rca.enabled: true
-{% endif %}
+
