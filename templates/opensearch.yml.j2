@@ -1,4 +1,6 @@
+# ========================
 # Cluster
+# ========================
 
 cluster.name: "{{ opensearch_cluster_name }}"
 node.name: "{{ inventory_hostname }}"
@@ -88,10 +90,8 @@ plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_config_dir }}/esn
 plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_config_dir }}/root-ca.pem"
 plugins.security.ssl.transport.enforce_hostname_verification: false
 
-
 # HTTP TLS disabled → plain HTTP
 plugins.security.ssl.http.enabled: false
-
 
 # Demo Admin DN
 plugins.security.authcz.admin_dn:
@@ -101,13 +101,4 @@ plugins.security.authcz.admin_dn:
 plugins.security.nodes_dn:
   - "CN=node,OU=client,O=client,L=test,C=de"
 
-{% endif %}
-
-
-# ========================
-# Metrics & Performance Analyzer
-# ========================
-
-{% if opensearch_metrics_enabled | bool %}
-plugins.performance_analyzer.enabled: {{ opensearch_performance_analyzer_enabled | lower }}
 {% endif %}
