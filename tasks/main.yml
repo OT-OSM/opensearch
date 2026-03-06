@@ -66,6 +66,10 @@
     - opensearch_install_node | bool
     - opensearch_enable_cluster_mode | bool
 
+- name: Install Prometheus exporter
+  ansible.builtin.include_tasks: install-exporter.yml
+  when: opensearch_metrics_enabled | bool
+  
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
     host: "{{ item }}"
