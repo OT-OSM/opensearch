@@ -134,12 +134,6 @@
   register: opensearch_plugins
   changed_when: false
 
-- name: Install Performance Analyzer plugin if missing
-  ansible.builtin.command: >
-    /usr/share/opensearch/bin/opensearch-plugin install opensearch-performance-analyzer
-  when: "'opensearch-performance-analyzer' not in opensearch_plugins.stdout"
-  notify: Restart OpenSearch
-
 
 # Enable Performance Analyzer
 
