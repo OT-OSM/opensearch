@@ -129,27 +129,12 @@
 # Performance Analyzer
 # -------------------------------
 
-- name: Get installed OpenSearch plugins
-  ansible.builtin.command: /usr/share/opensearch/bin/opensearch-plugin list
-  register: opensearch_plugins
-  changed_when: false
-
-
-# Enable Performance Analyzer
-
 - name: Enable Performance Analyzer
-  ansible.builtin.lineinfile:
+  ansible.builtin.blockinfile:
     path: "{{ opensearch_config_dir }}/opensearch.yml"
-    line: "plugins.performance_analyzer.enabled: true"
-    state: present
-  notify: Restart OpenSearch
-
-
-- name: Enable Performance Analyzer Agent
-  ansible.builtin.lineinfile:
-    path: "{{ opensearch_config_dir }}/opensearch.yml"
-    line: "plugins.performance_analyzer.agent.enabled: true"
-    state: present
+    marker: "# {mark} ANSIBLE PERFORMANCE ANALYZER"
+    block: |
+      plugins.performance_analyzer.enabled: true
   notify: Restart OpenSearch
 
 
