@@ -27,6 +27,15 @@
     - Reload systemd
     - Restart opensearch-exporter
 
+- name: Deploy opensearch-exporter environment file
+  ansible.builtin.template:
+    src: opensearch-exporter.env.j2
+    dest: /etc/default/opensearch-exporter
+    owner: root
+    group: opensearch
+    mode: "0640"
+  no_log: true
+
 - name: Enable and start opensearch-exporter
   ansible.builtin.systemd:
     name: opensearch-exporter
