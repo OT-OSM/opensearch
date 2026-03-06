@@ -126,7 +126,7 @@
     - "{{ opensearch_config_dir }}"
 
 # Install Performance Analyzer Plugin
-
+ 
 - name: Check if performance analyzer plugin exists
   ansible.builtin.stat:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
