@@ -125,9 +125,14 @@
     - "{{ opensearch_config_dir }}"
 
 
-# -------------------------------
-# Performance Analyzer Metrics
-# -------------------------------
+# ------------------------------------------------
+# Performance Analyzer Metrics Configuration
+# ------------------------------------------------
+
+- name: Check if performance analyzer plugin exists
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
+  register: pa_plugin
 
 - name: Ensure performance analyzer metrics directory
   ansible.builtin.file:
@@ -136,13 +141,14 @@
     owner: opensearch
     group: opensearch
     mode: "0755"
+  when: pa_plugin.stat.exists
 
 - name: Configure performance analyzer webservice host
   ansible.builtin.lineinfile:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^webservice-bind-host'
     line: 'webservice-bind-host = 0.0.0.0'
-    create: false
+  when: pa_plugin.stat.exists
   notify: Restart OpenSearch
 
 - name: Configure performance analyzer metrics location
@@ -150,13 +156,13 @@
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
     regexp: '^metrics-location'
     line: 'metrics-location = /dev/shm/performanceanalyzer/'
-    create: false
+  when: pa_plugin.stat.exists
   notify: Restart OpenSearch
 
 
-# -------------------------------
+# ------------------------------------------------
 # Security Demo Config
-# -------------------------------
+# ------------------------------------------------
 
 - name: Install demo configuration
   ansible.builtin.command: >
