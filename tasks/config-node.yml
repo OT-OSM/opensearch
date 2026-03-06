@@ -125,6 +125,18 @@
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
 
+# Install Performance Analyzer Plugin
+
+- name: Check if performance analyzer plugin exists
+  ansible.builtin.stat:
+    path: /usr/share/opensearch/plugins/opensearch-performance-analyzer
+  register: pa_plugin
+
+- name: Install performance analyzer plugin
+  ansible.builtin.command:
+    cmd: /usr/share/opensearch/bin/opensearch-plugin install -b opensearch-performance-analyzer
+  when: not pa_plugin.stat.exists
+  notify: Restart OpenSearch
 
 # Install Demo Security Configuration (HTTP mode)
 
