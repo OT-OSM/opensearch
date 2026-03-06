@@ -26,6 +26,13 @@ discovery.type: single-node
 
 
 # ========================
+# Performance Analyzer
+# ========================
+
+plugins.performance_analyzer.enabled: true
+
+
+# ========================
 # Security Plugin
 # ========================
 
@@ -97,8 +104,8 @@ plugins.security.ssl.http.enabled: false
 plugins.security.authcz.admin_dn:
   - "CN=kirk,OU=client,O=client,L=test,C=de"
 
-# Demo Node DN
+# Demo Node DN (FIXED)
 plugins.security.nodes_dn:
-  - "CN=node,OU=client,O=client,L=test,C=de"
+  - "CN=esnode,OU=client,O=client,L=test,C=de"
 
 {% endif %}
