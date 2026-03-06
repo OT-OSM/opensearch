@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenSearch Prometheus Exporter
+After=network.target opensearch.service
+Wants=opensearch.service
+
+[Service]
+User=opensearch
+Group=opensearch
+ExecStart={{ opensearch_exporter_binary }} \
+  --es.uri=http://{{ opensearch_api_host }}:{{ opensearch_http_port }} \
+  --es.all \
+  --es.indices \
+  --es.shards \
+  --es.cluster_settings \
+  --web.listen-address=:{{ opensearch_exporter_port }} \
+  --web.telemetry-path=/metrics \
+  --es.username={{ opensearch_admin_username }} \
+  --es.password={{ opensearch_admin_password }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
