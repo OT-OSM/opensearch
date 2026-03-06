@@ -124,11 +124,12 @@
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
 
+
 # -------------------------------
-# Performance Analyzer Agent
+# Performance Analyzer Metrics
 # -------------------------------
 
-- name: Ensure performance analyzer directory exists
+- name: Ensure performance analyzer metrics directory
   ansible.builtin.file:
     path: /dev/shm/performanceanalyzer
     state: directory
@@ -136,20 +137,20 @@
     group: opensearch
     mode: "0755"
 
-- name: Configure performance analyzer agent
+- name: Configure performance analyzer webservice host
   ansible.builtin.lineinfile:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
-    regexp: "^webservice-bind-host"
-    line: "webservice-bind-host = 0.0.0.0"
-    create: yes
+    regexp: '^webservice-bind-host'
+    line: 'webservice-bind-host = 0.0.0.0'
+    create: false
   notify: Restart OpenSearch
 
-- name: Ensure performance analyzer metrics path
+- name: Configure performance analyzer metrics location
   ansible.builtin.lineinfile:
     path: /usr/share/opensearch/plugins/opensearch-performance-analyzer/performance-analyzer-agent/performance-analyzer.properties
-    regexp: "^metrics-location"
-    line: "metrics-location = /dev/shm/performanceanalyzer/"
-    create: yes
+    regexp: '^metrics-location'
+    line: 'metrics-location = /dev/shm/performanceanalyzer/'
+    create: false
   notify: Restart OpenSearch
 
 
