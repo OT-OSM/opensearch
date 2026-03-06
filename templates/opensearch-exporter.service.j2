@@ -7,7 +7,7 @@ Wants=opensearch.service
 User=opensearch
 Group=opensearch
 ExecStart={{ opensearch_exporter_binary }} \
-  --es.uri=http://{{ opensearch_admin_username }}:{{ opensearch_admin_password }}@{{ opensearch_api_host }}:{{ opensearch_http_port }} \
+  --es.uri=http://{{ opensearch_admin_username }}:{{ opensearch_admin_password | urlencode }}@{{ opensearch_api_host }}:{{ opensearch_http_port }} \
   --es.all \
   --es.indices \
   --es.shards \
