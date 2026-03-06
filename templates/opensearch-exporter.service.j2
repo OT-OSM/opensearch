@@ -6,15 +6,8 @@ Wants=opensearch.service
 [Service]
 User=opensearch
 Group=opensearch
-ExecStart={{ opensearch_exporter_binary }} \
-  --es.uri=http://{{ opensearch_admin_username }}:{{ opensearch_admin_password | urlencode }}@{{ opensearch_api_host }}:{{ opensearch_http_port }} \
-  --es.all \
-  --es.indices \
-  --es.shards \
-  --collector.clustersettings \
-  --web.listen-address=:{{ opensearch_exporter_port }} \
-  --web.telemetry-path=/metrics \
-  --log.level=info
+EnvironmentFile=/etc/default/opensearch-exporter
+ExecStart={{ opensearch_exporter_binary }} --es.uri=http://${ES_USERNAME}:${ES_PASSWORD}@${ES_HOST}:${ES_PORT} --es.all --es.indices --es.shards --collector.clustersettings --web.listen-address=:{{ opensearch_exporter_port }} --web.telemetry-path=/metrics --log.level=info
 Restart=always
 RestartSec=10
 
