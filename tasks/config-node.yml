@@ -125,18 +125,43 @@
     - "{{ opensearch_config_dir }}"
 
 
-# Verify Performance Analyzer Plugin 
+# -------------------------------
+# Performance Analyzer
+# -------------------------------
 
 - name: Get installed OpenSearch plugins
   ansible.builtin.command: /usr/share/opensearch/bin/opensearch-plugin list
   register: opensearch_plugins
   changed_when: false
 
-- name: Show installed plugins
-  ansible.builtin.debug:
-    var: opensearch_plugins.stdout_lines
+- name: Install Performance Analyzer plugin if missing
+  ansible.builtin.command: >
+    /usr/share/opensearch/bin/opensearch-plugin install opensearch-performance-analyzer
+  when: "'opensearch-performance-analyzer' not in opensearch_plugins.stdout"
+  notify: Restart OpenSearch
 
-# Install Demo Security Configuration (HTTP mode)
+
+# Enable Performance Analyzer
+
+- name: Enable Performance Analyzer
+  ansible.builtin.lineinfile:
+    path: "{{ opensearch_config_dir }}/opensearch.yml"
+    line: "plugins.performance_analyzer.enabled: true"
+    state: present
+  notify: Restart OpenSearch
+
+
+- name: Enable Performance Analyzer Agent
+  ansible.builtin.lineinfile:
+    path: "{{ opensearch_config_dir }}/opensearch.yml"
+    line: "plugins.performance_analyzer.agent.enabled: true"
+    state: present
+  notify: Restart OpenSearch
+
+
+# -------------------------------
+# Security Demo Config
+# -------------------------------
 
 - name: Install demo configuration
   ansible.builtin.command: >
