@@ -1,12 +1,11 @@
 ---
 # User & Group
-
 - name: Ensure opensearch group exists
   ansible.builtin.group:
     name: opensearch
     state: present
     system: true
-
+    
 - name: Ensure opensearch user exists
   ansible.builtin.user:
     name: opensearch
@@ -14,23 +13,19 @@
     system: true
     group: opensearch
     create_home: false
-
-
+    
 # Password Hashes
-
 - name: Set admin password hash fact
   ansible.builtin.set_fact:
     opensearch_admin_password_hash: "{{ opensearch_admin_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
-
+  
 - name: Set kibanaserver password hash fact
   ansible.builtin.set_fact:
     opensearch_kibanaserver_password_hash: "{{ opensearch_kibanaserver_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
-
-
+  
 # Directories
-
 - name: Create OpenSearch required directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -42,10 +37,8 @@
     - "{{ opensearch_config_dir }}"
     - "{{ opensearch_data_path }}"
     - "{{ opensearch_logs_path }}"
-
-
+    
 # Configuration Files
-
 - name: Deploy opensearch.yml
   ansible.builtin.template:
     src: opensearch.yml.j2
@@ -54,7 +47,7 @@
     group: opensearch
     mode: "0640"
   notify: Restart OpenSearch
-
+  
 - name: Deploy jvm.options
   ansible.builtin.template:
     src: jvm.options.j2
@@ -63,10 +56,8 @@
     group: opensearch
     mode: "0640"
   notify: Restart OpenSearch
-
-
+  
 # System Limits
-
 - name: Configure system limits
   ansible.builtin.lineinfile:
     path: /etc/security/limits.conf
@@ -79,15 +70,13 @@
     - "opensearch hard nproc 4096"
     - "opensearch soft memlock unlimited"
     - "opensearch hard memlock unlimited"
-
-
+    
 # Systemd Override
-
 - name: Create systemd override directory
   ansible.builtin.file:
     path: /etc/systemd/system/opensearch.service.d
     state: directory
-
+    
 - name: Deploy systemd override file
   ansible.builtin.template:
     src: opensearch_override.conf.j2
@@ -95,10 +84,8 @@
   notify:
     - Reload systemd
     - Restart OpenSearch
-
-
+    
 # Environment File
-
 - name: Deploy environment file (Debian)
   ansible.builtin.template:
     src: opensearch.env.j2
@@ -109,10 +96,8 @@
   when: ansible_os_family == "Debian"
   notify: Restart OpenSearch
   no_log: true
-
-
+  
 # Fix Permissions
-
 - name: Fix directory permissions
   ansible.builtin.file:
     path: "{{ item }}"
@@ -123,11 +108,8 @@
     - "{{ opensearch_data_path }}"
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
-
-
-
+    
 # Deploy Security Files
-
 - name: Deploy internal_users.yml
   ansible.builtin.template:
     src: internal_users.yml.j2
@@ -136,7 +118,7 @@
     group: opensearch
     mode: "0600"
   when: not opensearch_use_tls | bool
-
+  
 - name: Deploy roles_mapping.yml
   ansible.builtin.template:
     src: roles_mapping.yml.j2
@@ -145,19 +127,15 @@
     group: opensearch
     mode: "0600"
   when: not opensearch_use_tls | bool
-
-
+  
 # Enable Service
-
 - name: Enable OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
     enabled: true
     daemon_reload: true
-
-
+    
 # Start Service
-
 - name: Start OpenSearch service
   ansible.builtin.systemd:
     name: opensearch
