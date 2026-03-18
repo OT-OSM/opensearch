@@ -1,0 +1,10 @@
+---
+opensearch_java_package: java-17-openjdk
+opensearch_prerequisites:
+  - curl
+  - gnupg
+  - ca-certificates
+  - tar
+  - gzip
+  - unzip
+  - shadow-utils

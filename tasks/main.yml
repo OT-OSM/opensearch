@@ -1,19 +1,82 @@
 ---
-- name: Including playbook for pre-checks for OpenSearch
-  include_tasks: pre-requisites.yaml
+- name: Validate supported OS family
+  ansible.builtin.fail:
+    msg: "OS family '{{ ansible_os_family }}' is not supported. Supported: Debian, RedHat"
+  when: ansible_os_family not in ['Debian', 'RedHat']
 
-- name: Including playbook to disable SELinux on server
-  include_tasks: Disable_selinux.yaml
-  when: (ansible_distribution != "Ubuntu") and (ansible_distribution != "Amazon")
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - opensearch_domain_name is defined
+      - opensearch_domain_name | length > 0
+    fail_msg: >-
+      'opensearch_domain_name' must be defined and non-empty.
+      It is used for API connectivity checks. Set it to your cluster domain or IP.
 
-- name: Including tasks to install opensearch
-  include_tasks: opensearch_install.yaml
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "vars/{{ ansible_distribution }}.yml"
+    - "vars/{{ ansible_os_family }}.yml"
 
-- name: Installing opensearch
-  include_tasks: security.yaml
+- name: Configure system prerequisites
+  ansible.builtin.include_tasks: prereqs.yml
 
-- name: user-management
-  include_tasks: user-management.yaml
+- name: Setup repositories for {{ ansible_os_family }}
+  ansible.builtin.include_tasks: "setup-{{ ansible_os_family }}.yml"
 
-- name: intializing
-  include_tasks: intializing.yaml
+- name: Install OpenSearch node
+  ansible.builtin.include_tasks: install-node.yml
+  when: opensearch_install_node | bool
+
+- name: Configure OpenSearch node
+  ansible.builtin.include_tasks: config-node.yml
+  when: opensearch_install_node | bool
+
+- name: Configure security
+  ansible.builtin.include_tasks: security-config.yml
+  when: opensearch_install_node | bool
+
+- name: Flush handlers to ensure OpenSearch is started
+  ansible.builtin.meta: flush_handlers
+
+- name: Configure access control
+  ansible.builtin.include_tasks: access-control.yml
+  when:
+    - opensearch_install_node | bool
+    - opensearch_access_control_enabled | bool
+
+- name: Configure metrics and monitoring
+  ansible.builtin.include_tasks: metrics.yml
+  when:
+    - opensearch_install_node | bool
+    - opensearch_metrics_enabled | bool
+
+- name: Install OpenSearch Dashboards
+  ansible.builtin.include_tasks: install-dashboard.yml
+  when: opensearch_install_dashboard | bool
+
+- name: Configure OpenSearch Dashboards
+  ansible.builtin.include_tasks: config-dashboard.yml
+  when: opensearch_install_dashboard | bool
+
+- name: Verify cluster health
+  ansible.builtin.include_tasks: verify-cluster.yml
+  when:
+    - opensearch_install_node | bool
+    - opensearch_enable_cluster_mode | bool
+
+- name: Install Prometheus exporter
+  ansible.builtin.include_tasks: install-exporter.yml
+  when: opensearch_metrics_enabled | bool
+  
+- name: Verify network connectivity between nodes (Port 9300)
+  ansible.builtin.wait_for:
+    host: "{{ item }}"
+    port: 9300
+    state: started
+    timeout: 30
+  loop: "{{ opensearch_discovery_seed_hosts }}"
+  when:
+    - opensearch_enable_cluster_mode | bool
+    - opensearch_discovery_seed_hosts | length > 0
