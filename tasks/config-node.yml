@@ -168,12 +168,19 @@
     
 # Start Service
 - name: Start OpenSearch service
-  ansible.builtin.systemd:
+  systemd:
     name: opensearch
     state: started
-    enabled: true
-    daemon_reload: true
-  register: opensearch_service
-  retries: 5
+    daemon_reload: yes
+
+- name: Wait for OpenSearch to be up
+  uri:
+    url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+  register: result
+  until: result.status == 200
+  retries: 15
   delay: 10
-  until: opensearch_service is succeeded
