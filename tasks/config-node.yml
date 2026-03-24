@@ -134,6 +134,37 @@
     name: opensearch
     enabled: true
     daemon_reload: true
+
+# Install repository-s3 plugin
+- name: Install repository-s3 plugin
+  ansible.builtin.command: >
+    /usr/share/opensearch/bin/opensearch-plugin install --batch repository-s3
+  args:
+    creates: /usr/share/opensearch/plugins/repository-s3
+  notify: Restart OpenSearch
+
+
+# Ensure keystore exists
+- name: Ensure keystore exists
+  ansible.builtin.command: /usr/share/opensearch/bin/opensearch-keystore create
+  args:
+    creates: /etc/opensearch/opensearch.keystore
+
+# Add MinIO access key (safe)
+- name: Add MinIO access key
+  ansible.builtin.shell: |
+    echo "{{ lookup('env','MINIO_ACCESS_KEY') }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+  become: true
+  no_log: true
+
+
+# Add MinIO secret key (safe)
+- name: Add MinIO secret key
+  ansible.builtin.shell: |
+    echo "{{ lookup('env','MINIO_SECRET_KEY') }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+  become: true
+  no_log: true
+
     
 # Start Service
 - name: Start OpenSearch service
