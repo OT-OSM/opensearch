@@ -152,6 +152,11 @@
   become: true
   become_user: opensearch
 
+- name: Check if access key exists
+  command: /usr/share/opensearch/bin/opensearch-keystore list
+  register: keystore_list
+  changed_when: false
+
 # Add MinIO access key (safe)
 - name: Add MinIO access key
   command: >
