@@ -158,28 +158,25 @@
   args:
     creates: /etc/opensearch/opensearch.keystore
   become: true
-  become_user: opensearch
 
 - name: Add MinIO access key
   shell: |
     echo "{{ minio_access_key }}" | \
     /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
   become: true
-  become_user: opensearch
 
 - name: Add MinIO secret key
   shell: |
     echo "{{ minio_secret_key }}" | \
     /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
   become: true
-  become_user: opensearch
 
 - name: Disable SSL validation
   shell: |
     echo "true" | \
     /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.disable_ssl_certificate_validation
   become: true
-  become_user: opensearch
+
 # ===========================
 # Fix permissions
 # ===========================
