@@ -167,20 +167,14 @@
   command: >
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
 
-# ===========================
-# Add MinIO access key
-# ===========================
 - name: Add MinIO access key
   shell: |
-    echo "{{ vault_minio_access_key }}" | \
+    echo "{{ lookup('env','MINIO_ACCESS_KEY') }}" | \
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
 
-# ===========================
-# Add MinIO secret key
-# ===========================
 - name: Add MinIO secret key
   shell: |
-    echo "{{ vault_minio_secret_key }}" | \
+    echo "{{ lookup('env','MINIO_SECRET_KEY') }}" | \
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
 
 # ===========================
