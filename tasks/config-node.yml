@@ -191,11 +191,10 @@
     mode: "0600"
 
 
-- name: Restart OpenSearch cleanly
-  systemd:
-    name: opensearch
-    state: restarted
-    daemon_reload: yes
+- name: Flush handlers
+  meta: flush_handlers
+
+
 # ===========================
 # Wait for cluster
 # ===========================
@@ -210,3 +209,4 @@
   until: result.status == 200
   retries: 30
   delay: 10
+
