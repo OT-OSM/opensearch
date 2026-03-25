@@ -1,4 +1,13 @@
 ---
+- name: Wait for cluster green
+  uri:
+    url: "http://localhost:9200/_cluster/health"
+    method: GET
+  register: health
+  until: health.json.status in ["green", "yellow"]
+  retries: 10
+  delay: 10
+
 # ===========================
 # Create Snapshot Repository
 # ===========================

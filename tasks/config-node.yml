@@ -163,20 +163,34 @@
 # ===========================
 # Create keystore
 # ===========================
+
 - name: Create keystore
-  command: >
-    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
+  command: /usr/share/opensearch/bin/opensearch-keystore create
+  args:
+    creates: /etc/opensearch/opensearch.keystore
+  become: true
+  become_user: opensearch
 
 - name: Add MinIO access key
   shell: |
-    echo "{{ minio_access_key }}"
-    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+    echo "{{ minio_access_key }}" | \
+    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+  become: true
+  become_user: opensearch
 
 - name: Add MinIO secret key
   shell: |
-    echo "{{ minio_secret_key }}"
-    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+    echo "{{ minio_secret_key }}" | \
+    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+  become: true
+  become_user: opensearch
 
+- name: Disable SSL validation
+  shell: |
+    echo "true" | \
+    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.disable_ssl_certificate_validation
+  become: true
+  become_user: opensearch
 # ===========================
 # Fix permissions
 # ===========================
@@ -187,18 +201,12 @@
     group: opensearch
     mode: "0600"
 
-- name: Disable SSL validation
-  shell: |
-    echo "true" | sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.disable_ssl_certificate_validation
 
-# ===========================
-# Start OpenSearch
-# ===========================
-- name: Start OpenSearch
+- name: Restart OpenSearch cleanly
   systemd:
     name: opensearch
-    state: started
-
+    state: restarted
+    daemon_reload: yes
 # ===========================
 # Wait for cluster
 # ===========================
