@@ -154,7 +154,8 @@
 # Create keystore
 
 - name: Create keystore if not exists
-  command: /usr/share/opensearch/bin/opensearch-keystore create
+  shell: |
+    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
   args:
     creates: /etc/opensearch/opensearch.keystore
 
