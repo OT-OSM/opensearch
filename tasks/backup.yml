@@ -1,0 +1,46 @@
+---
+# ===========================
+# Create Snapshot Repository
+# ===========================
+
+- name: Create snapshot repository
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      type: s3
+      settings:
+        bucket: "{{ opensearch_backup_bucket }}"
+        endpoint: "{{ minio_endpoint }}"
+        protocol: "{{ minio_protocol }}"
+        region: "us-east-1"
+        path_style_access: true
+    status_code: [200, 201]
+
+- name: Wait before snapshot (cluster stable)
+  pause:
+    seconds: 30
+
+# ===========================
+# Create Snapshot (BACKUP)
+# ===========================
+
+- name: Create snapshot
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      indices: "*"
+      ignore_unavailable: true
+      include_global_state: false
+    status_code: [200, 201]

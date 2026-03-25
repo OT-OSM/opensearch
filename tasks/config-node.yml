@@ -169,12 +169,12 @@
 
 - name: Add MinIO access key
   shell: |
-    echo "{{ lookup('env','MINIO_ACCESS_KEY') }}" | \
+    echo "{{ minio_access_key }}"
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
 
 - name: Add MinIO secret key
   shell: |
-    echo "{{ lookup('env','MINIO_SECRET_KEY') }}" | \
+    echo "{{ minio_secret_key }}"
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
 
 # ===========================
@@ -186,6 +186,10 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
+
+- name: Disable SSL validation
+  shell: |
+    echo "true" | sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.disable_ssl_certificate_validation
 
 # ===========================
 # Start OpenSearch

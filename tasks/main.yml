@@ -80,3 +80,7 @@
   when:
     - opensearch_enable_cluster_mode | bool
     - opensearch_discovery_seed_hosts | length > 0
+
+- include_tasks: backup.yml
+  when: opensearch_backup_enabled | bool
+  run_once: true
