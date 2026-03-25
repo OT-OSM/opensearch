@@ -143,26 +143,15 @@
     creates: /usr/share/opensearch/plugins/repository-s3
   notify: Restart OpenSearch
 
-# ===========================
-# Stop OpenSearch
-# ===========================
-- name: Stop OpenSearch service
-  systemd:
-    name: opensearch
-    state: stopped
-  ignore_errors: true
 
-# ===========================
 # Remove old keystore
-# ===========================
 - name: Remove old keystore
   file:
     path: /etc/opensearch/opensearch.keystore
     state: absent
+  when: opensearch_force_clean_data | bool
 
-# ===========================
 # Create keystore
-# ===========================
 
 - name: Create keystore
   command: /usr/share/opensearch/bin/opensearch-keystore create
