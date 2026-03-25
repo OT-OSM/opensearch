@@ -149,22 +149,39 @@
   ansible.builtin.command: /usr/share/opensearch/bin/opensearch-keystore create
   args:
     creates: /etc/opensearch/opensearch.keystore
+  become: true
+  become_user: opensearch
 
 # Add MinIO access key (safe)
 - name: Add MinIO access key
-  ansible.builtin.shell: |
-    echo "{{ lookup('env','MINIO_ACCESS_KEY') }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+  command: >
+    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+  args:
+    stdin: "{{ vault_minio_access_key }}"
   become: true
-  no_log: true
+  become_user: opensearch
 
-
-# Add MinIO secret key (safe)
 - name: Add MinIO secret key
-  ansible.builtin.shell: |
-    echo "{{ lookup('env','MINIO_SECRET_KEY') }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+  command: >
+    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+  args:
+    stdin: "{{ vault_minio_secret_key }}"
   become: true
-  no_log: true
+  become_user: opensearch
 
+- name: Fix keystore ownership
+  file:
+    path: /etc/opensearch/opensearch.keystore
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+
+- name: Fix config directory ownership
+  file:
+    path: /etc/opensearch
+    owner: opensearch
+    group: opensearch
+    recurse: yes
     
 # Start Service
 - name: Start OpenSearch service
