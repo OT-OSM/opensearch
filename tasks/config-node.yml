@@ -143,60 +143,68 @@
     creates: /usr/share/opensearch/plugins/repository-s3
   notify: Restart OpenSearch
 
-# Stop OpenSearch before keystore ops
-- name: Stop OpenSearch service (safe keystore update)
+# ===========================
+# Stop OpenSearch
+# ===========================
+- name: Stop OpenSearch service
   systemd:
     name: opensearch
     state: stopped
   ignore_errors: true
 
-# Remove old keystore (fresh state)
-- name: Remove old keystore if exists
+# ===========================
+# Remove old keystore
+# ===========================
+- name: Remove old keystore
   file:
     path: /etc/opensearch/opensearch.keystore
     state: absent
 
-# Create keystore (as opensearch user)
-- name: Create opensearch keystore
-  command: /usr/share/opensearch/bin/opensearch-keystore create
-  become: true
-  become_user: opensearch
+# ===========================
+# Create keystore
+# ===========================
+- name: Create keystore
+  command: >
+    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
 
+# ===========================
 # Add MinIO access key
+# ===========================
 - name: Add MinIO access key
-  command: >
-    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
-  args:
-    stdin: "{{ vault_minio_access_key }}"
-  become: true
-  become_user: opensearch
+  shell: |
+    echo "{{ vault_minio_access_key }}" | \
+    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
 
+# ===========================
 # Add MinIO secret key
+# ===========================
 - name: Add MinIO secret key
-  command: >
-    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
-  args:
-    stdin: "{{ vault_minio_secret_key }}"
-  become: true
-  become_user: opensearch
+  shell: |
+    echo "{{ vault_minio_secret_key }}" | \
+    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
 
-# Fix keystore permissions
-- name: Fix keystore ownership
+# ===========================
+# Fix permissions
+# ===========================
+- name: Fix keystore permissions
   file:
     path: /etc/opensearch/opensearch.keystore
     owner: opensearch
     group: opensearch
     mode: "0600"
 
+# ===========================
 # Start OpenSearch
-- name: Start OpenSearch service
+# ===========================
+- name: Start OpenSearch
   systemd:
     name: opensearch
     state: started
-    daemon_reload: yes
 
-# Wait for cluster (important for HA)
-- name: Wait for OpenSearch cluster
+# ===========================
+# Wait for cluster
+# ===========================
+- name: Wait for cluster
   uri:
     url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
