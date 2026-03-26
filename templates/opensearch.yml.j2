@@ -104,10 +104,15 @@ plugins.security.nodes_dn:
 # ========================
 # S3 Snapshot (MinIO)
 # ========================
-{% if opensearch_backup_enabled | default(false) | bool %}
+# ========================
+# S3 Snapshot (MinIO)
+# ========================
+{% if opensearch_backup_enabled | bool %}
 
 s3.client.default.endpoint: "{{ minio_endpoint }}"
 s3.client.default.protocol: "{{ minio_protocol }}"
 s3.client.default.path_style_access: true
+# Add the line below to replace the one we removed from the keystore
+s3.client.default.disable_ssl_certificate_validation: true
 
 {% endif %}
