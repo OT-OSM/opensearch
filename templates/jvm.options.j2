@@ -8,10 +8,13 @@
 ## Expert settings
 ################################################################
 ## GC configuration
-8-13:-XX:+UseConcMarkSweepGC
-8-13:-XX:CMSInitiatingOccupancyFraction=75
-8-13:-XX:+UseCMSInitiatingOccupancyOnly
+#8-13:-XX:+UseConcMarkSweepGC
+#8-13:-XX:CMSInitiatingOccupancyFraction=75
+#8-13:-XX:+UseCMSInitiatingOccupancyOnly
 
+-XX:+UseG1GC
+-XX:G1ReservePercent=25
+-XX:InitiatingHeapOccupancyPercent=75
 ## G1GC Configuration
 # NOTE: G1 GC is only supported on JDK 14+
 14-:-XX:+UseG1GC
