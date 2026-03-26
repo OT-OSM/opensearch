@@ -3,6 +3,11 @@
   uri:
     url: "http://localhost:9200/_cluster/health"
     method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
   register: health
   until: health.json.status in ["green", "yellow"]
   retries: 10
