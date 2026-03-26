@@ -5,7 +5,7 @@
     name: opensearch
     state: present
     system: true
-    
+
 - name: Ensure opensearch user exists
   ansible.builtin.user:
     name: opensearch
@@ -13,18 +13,18 @@
     system: true
     group: opensearch
     create_home: false
-    
+
 # Password Hashes
 - name: Set admin password hash fact
   ansible.builtin.set_fact:
     opensearch_admin_password_hash: "{{ opensearch_admin_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
-  
+
 - name: Set kibanaserver password hash fact
   ansible.builtin.set_fact:
     opensearch_kibanaserver_password_hash: "{{ opensearch_kibanaserver_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
   no_log: true
-  
+
 # Directories
 - name: Create OpenSearch required directories
   ansible.builtin.file:
@@ -37,7 +37,7 @@
     - "{{ opensearch_config_dir }}"
     - "{{ opensearch_data_path }}"
     - "{{ opensearch_logs_path }}"
-    
+
 # Configuration Files
 - name: Deploy opensearch.yml
   ansible.builtin.template:
@@ -47,7 +47,7 @@
     group: opensearch
     mode: "0640"
   notify: Restart OpenSearch
-  
+
 - name: Deploy jvm.options
   ansible.builtin.template:
     src: jvm.options.j2
@@ -56,7 +56,7 @@
     group: opensearch
     mode: "0640"
   notify: Restart OpenSearch
-  
+
 # System Limits
 - name: Configure system limits
   ansible.builtin.lineinfile:
@@ -70,13 +70,13 @@
     - "opensearch hard nproc {{ opensearch_limits.nproc }}"
     - "opensearch soft memlock {{ opensearch_limits.memlock }}"
     - "opensearch hard memlock {{ opensearch_limits.memlock }}"
-    
+
 # Systemd Override
 - name: Create systemd override directory
   ansible.builtin.file:
     path: /etc/systemd/system/opensearch.service.d
     state: directory
-    
+
 - name: Deploy systemd override file
   ansible.builtin.template:
     src: opensearch_override.conf.j2
@@ -84,7 +84,7 @@
   notify:
     - Reload systemd
     - Restart OpenSearch
-    
+
 # Environment File
 - name: Deploy environment file (Debian)
   ansible.builtin.template:
@@ -96,7 +96,7 @@
   when: ansible_os_family == "Debian"
   notify: Restart OpenSearch
   no_log: true
-  
+
 # Fix Permissions
 - name: Fix directory permissions
   ansible.builtin.file:
@@ -108,7 +108,7 @@
     - "{{ opensearch_data_path }}"
     - "{{ opensearch_logs_path }}"
     - "{{ opensearch_config_dir }}"
-    
+
 # Deploy Security Files
 - name: Deploy internal_users.yml
   ansible.builtin.template:
@@ -118,7 +118,7 @@
     group: opensearch
     mode: "0600"
   when: not opensearch_use_tls | bool
-  
+
 - name: Deploy roles_mapping.yml
   ansible.builtin.template:
     src: roles_mapping.yml.j2
@@ -127,7 +127,7 @@
     group: opensearch
     mode: "0600"
   when: not opensearch_use_tls | bool
-  
+
 # Enable Service
 - name: Enable OpenSearch service
   ansible.builtin.systemd:
@@ -142,7 +142,6 @@
   args:
     creates: /usr/share/opensearch/plugins/repository-s3
   notify: Restart OpenSearch
-
 
 # Remove old keystore
 - name: Remove old keystore
@@ -173,13 +172,6 @@
     stdin: "{{ minio_secret_key }}"
   become: true
 
-- name: Disable SSL validation
-  command: >
-    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.disable_ssl_certificate_validation
-  args:
-    stdin: "true"
-  become: true
-
 # ===========================
 # Fix permissions
 # ===========================
@@ -190,10 +182,8 @@
     group: opensearch
     mode: "0600"
 
-
 - name: Flush handlers
   meta: flush_handlers
-
 
 # ===========================
 # Wait for cluster
@@ -209,4 +199,3 @@
   until: result.status == 200
   retries: 30
   delay: 10
-

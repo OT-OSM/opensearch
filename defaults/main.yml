@@ -150,5 +150,4 @@ minio_secret_key: "{{ lookup('env', 'MINIO_SECRET_KEY') }}"
 
 # Extra S3 client options
 opensearch_s3_path_style_access: true
-opensearch_s3_disable_ssl_certificate_validation: false
 opensearch_force_clean_data: false
