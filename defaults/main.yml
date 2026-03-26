@@ -124,3 +124,31 @@ opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
 opensearch_dashboards_admin_username: "admin"
 opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
 opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
+
+# ===========================
+# Backup / Snapshot (MinIO)
+# ===========================
+
+opensearch_backup_enabled: false
+opensearch_restore_enabled: false
+opensearch_restore_indices: "*" # restore all indices; override to target specific ones
+opensearch_restore_snapshot_name: "" # leave empty to auto-pick the latest SUCCESS snapshot
+
+opensearch_backup_username: "{{ opensearch_admin_username }}"
+opensearch_backup_password: "{{ opensearch_admin_password }}"
+
+opensearch_backup_repo: "minio_repo"
+opensearch_backup_bucket: "opensearch-backup"
+opensearch_backup_name: "snapshot_{{ ansible_date_time.epoch }}"
+
+minio_endpoint: "minio.ldc.opstree.dev:9000"
+minio_protocol: "https"
+
+# Credentials — sourced from Semaphore env vars
+minio_access_key: "{{ lookup('env', 'MINIO_ACCESS_KEY') }}"
+minio_secret_key: "{{ lookup('env', 'MINIO_SECRET_KEY') }}"
+
+# Extra S3 client options
+opensearch_s3_path_style_access: true
+opensearch_s3_disable_ssl_certificate_validation: false
+opensearch_force_clean_data: false

@@ -1,0 +1,141 @@
+---
+# ===========================
+# Fire Drill — Restore from MinIO Snapshot
+# ===========================
+
+- name: Wait for cluster to be healthy before restore
+  uri:
+    url: "http://localhost:9200/_cluster/health"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: health
+  until: health.json.status in ["green", "yellow"]
+  retries: 15
+  delay: 10
+
+# ===========================
+# Register Snapshot Repository
+# ===========================
+
+- name: Register MinIO snapshot repository
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      type: s3
+      settings:
+        bucket: "{{ opensearch_backup_bucket }}"
+        endpoint: "{{ minio_endpoint }}"
+        protocol: "{{ minio_protocol }}"
+        region: "us-east-1"
+        path_style_access: true
+        access_key: "{{ minio_access_key }}"
+        secret_key: "{{ minio_secret_key }}"
+    status_code: [200, 201]
+
+# ===========================
+# Discover Latest Snapshot
+# ===========================
+
+- name: List all snapshots in repository
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/_all"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: snapshot_list
+
+- name: Fail if no snapshots found
+  ansible.builtin.fail:
+    msg: "No snapshots found in repository '{{ opensearch_backup_repo }}'. Cannot restore."
+  when: snapshot_list.json.snapshots | length == 0
+
+- name: Identify latest successful snapshot
+  ansible.builtin.set_fact:
+    opensearch_restore_snapshot_name: >-
+      {{
+        (snapshot_list.json.snapshots
+          | selectattr('state', 'equalto', 'SUCCESS')
+          | list
+          | last).snapshot
+      }}
+
+- name: Show snapshot that will be restored
+  ansible.builtin.debug:
+    msg: "Restoring from snapshot: {{ opensearch_restore_snapshot_name }}"
+
+# ===========================
+# Close indices before restore
+# ===========================
+
+- name: Close all user indices before restore
+  uri:
+    url: "http://localhost:9200/*,-.*/_close"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+  ignore_errors: true
+
+# ===========================
+# Restore Snapshot
+# ===========================
+
+- name: Restore snapshot
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      indices: "{{ opensearch_restore_indices | default('*') }}"
+      ignore_unavailable: true
+      include_global_state: false
+      include_aliases: true
+    status_code: [200, 202]
+
+# ===========================
+# Wait for restore to complete
+# ===========================
+
+- name: Wait for restore to complete (poll recovery status)
+  uri:
+    url: "http://localhost:9200/_cat/recovery?active_only=true&format=json"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: recovery_status
+  until: recovery_status.json | length == 0
+  retries: 30
+  delay: 15
+
+- name: Verify cluster health after restore
+  uri:
+    url: "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: post_restore_health
+
+- name: Show cluster health after restore
+  ansible.builtin.debug:
+    msg: "Cluster status after restore: {{ post_restore_health.json.status }}"

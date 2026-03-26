@@ -16,8 +16,8 @@
   uri:
     url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
     force_basic_auth: true
     validate_certs: false
     body_format: json
@@ -29,6 +29,8 @@
         protocol: "{{ minio_protocol }}"
         region: "us-east-1"
         path_style_access: true
+        access_key: "{{ minio_access_key }}"
+        secret_key: "{{ minio_secret_key }}"
     status_code: [200, 201]
 
 - name: Wait before snapshot (cluster stable)
