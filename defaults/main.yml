@@ -107,7 +107,8 @@ opensearch_saml_entity_id: ""
 opensearch_saml_exchange_key: ""
 
 # Access Control
-opensearch_access_control_enabled: true
+opensearch_access_control_enabled: false
+
 opensearch_custom_roles: []
 opensearch_custom_role_mappings:
   - role: "snapshot_management_full_access"

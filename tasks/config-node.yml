@@ -158,13 +158,8 @@
   args:
     creates: /etc/opensearch/opensearch.keystore
 
-- name: Remove invalid s3 ssl keystore entry if present (cleanup from old runs)
-  command: /usr/share/opensearch/bin/opensearch-keystore remove s3.client.default.disable_ssl_certificate_validation
-  become: true
-  ignore_errors: true
-  changed_when: false
-
 - name: Add MinIO access key
+
   ansible.builtin.shell: |
     echo -n "{{ minio_access_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
   become: true
