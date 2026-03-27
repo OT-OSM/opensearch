@@ -58,3 +58,33 @@
       ignore_unavailable: true
       include_global_state: false
     status_code: [200, 201]
+
+# ===========================
+# Show Snapshot Summary
+# ===========================
+
+- name: Fetch snapshot status
+  uri:
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: snapshot_info
+
+- name: Show snapshot summary
+  ansible.builtin.debug:
+    msg: |
+      ==================== SNAPSHOT SUMMARY ====================
+      Name       : {{ snapshot_info.json.snapshots[0].snapshot }}
+      State      : {{ snapshot_info.json.snapshots[0].state }}
+      Start Time : {{ snapshot_info.json.snapshots[0].start_time }}
+      End Time   : {{ snapshot_info.json.snapshots[0].end_time }}
+      Indices    : {{ snapshot_info.json.snapshots[0].indices | join(', ') }}
+      Shards     : {{ snapshot_info.json.snapshots[0].shards.successful }} successful /
+                   {{ snapshot_info.json.snapshots[0].shards.total }} total
+      Repository : {{ opensearch_backup_repo }}
+      Bucket     : {{ opensearch_backup_bucket }}
+      ===========================================================
