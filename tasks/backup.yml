@@ -34,8 +34,6 @@
         protocol: "{{ minio_protocol }}"
         region: "us-east-1"
         path_style_access: true
-        access_key: "{{ minio_access_key }}"
-        secret_key: "{{ minio_secret_key }}"
     status_code: [200, 201]
 
 - name: Wait before snapshot (cluster stable)

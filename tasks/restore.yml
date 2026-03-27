@@ -11,6 +11,7 @@
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
     force_basic_auth: true
     validate_certs: false
+    return_content: true
   register: health
   until: health.json.status in ["green", "yellow"]
   retries: 15
@@ -37,8 +38,6 @@
         protocol: "{{ minio_protocol }}"
         region: "us-east-1"
         path_style_access: true
-        access_key: "{{ minio_access_key }}"
-        secret_key: "{{ minio_secret_key }}"
     status_code: [200, 201]
 
 # ===========================
