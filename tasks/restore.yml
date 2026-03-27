@@ -102,7 +102,7 @@
     validate_certs: false
     body_format: json
     body:
-      indices: "{{ opensearch_restore_indices | default('*,-.opendistro_security,-.plugins-ml-config,-.opensearch-sap-log-types-config') }}"
+      indices: "{{ opensearch_restore_indices | default('*,-.*') }}"
       ignore_unavailable: true
       include_global_state: false
       include_aliases: true

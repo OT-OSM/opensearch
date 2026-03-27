@@ -66,6 +66,7 @@ opensearch_number_of_replicas: 0
 
 # Security / TLS
 opensearch_use_tls: false
+opensearch_security_disabled: false
 
 # HTTP layer (External Client-to-Node)
 opensearch_root_ca_path: "/etc/opensearch/chain.pem"
@@ -131,7 +132,7 @@ opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ ope
 
 opensearch_backup_enabled: false
 opensearch_restore_enabled: false
-opensearch_restore_indices: "*" # restore all indices; override to target specific ones
+opensearch_restore_indices: "*,-.*" # restore all user indices; skip system ones to avoid 403 errors during live restore
 opensearch_restore_snapshot_name: "" # leave empty to auto-pick the latest SUCCESS snapshot
 
 opensearch_backup_username: "{{ opensearch_admin_username }}"
