@@ -33,9 +33,7 @@
         dest: "{{ opensearch_certs_dir }}/admin-key.pem",
         mode: "0600",
       }
-  when: >
-    (item.src != item.dest) and
-    (item.src is defined and item.src | length > 0)
+  when: opensearch_use_tls | bool
   ignore_errors: true
 
 - name: Update certificate paths to internal directory
@@ -43,9 +41,7 @@
     opensearch_root_ca_path: "{{ opensearch_certs_dir }}/chain.pem"
     opensearch_admin_cert_path: "{{ opensearch_certs_dir }}/admin.pem"
     opensearch_admin_key_path: "{{ opensearch_certs_dir }}/admin-key.pem"
-  when: >
-    (opensearch_use_tls | bool) or
-    (opensearch_admin_cert_path is defined and opensearch_admin_cert_path | length > 0)
+  when: opensearch_use_tls | bool
 
 # Verify TLS files exist
 
@@ -57,9 +53,7 @@
     - "{{ opensearch_admin_cert_path }}"
     - "{{ opensearch_admin_key_path }}"
   register: tls_files
-  when: >
-    (opensearch_use_tls | bool) or
-    (opensearch_admin_cert_path is defined and opensearch_admin_cert_path | length > 0)
+  when: opensearch_use_tls | bool
 
 - name: Fail if TLS file missing
   ansible.builtin.fail:
@@ -81,9 +75,7 @@
     - { path: "{{ opensearch_root_ca_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_cert_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_key_path }}", mode: "0600" }
-  when: >
-    (opensearch_use_tls | bool) or
-    (opensearch_admin_cert_path is defined and opensearch_admin_cert_path | length > 0)
+  when: opensearch_use_tls | bool
 
 # Fix security config permissions
 
@@ -116,6 +108,7 @@
   when: opensearch_use_tls | bool
 
 # Deploy Security Config templates to the security config dir
+
 - name: Deploy internal_users.yml to security config dir
   ansible.builtin.template:
     src: internal_users.yml.j2
@@ -123,9 +116,7 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: >
-    (opensearch_use_tls | bool) or
-    (not (opensearch_security_disabled | default(false) | bool))
+  when: opensearch_use_tls | bool
 
 - name: Deploy roles_mapping.yml to security config dir
   ansible.builtin.template:
@@ -134,9 +125,7 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: >
-    (opensearch_use_tls | bool) or
-    (not (opensearch_security_disabled | default(false) | bool))
+  when: opensearch_use_tls | bool
 
 # Initialize Security Index
 
@@ -151,10 +140,7 @@
     -key "{{ opensearch_admin_key_path }}"
     -h "{{ opensearch_api_host }}"
   register: security_init
-  when: >
-    (opensearch_use_tls | bool) or
-    (not (opensearch_security_disabled | default(false) | bool))
-
+  when: opensearch_use_tls | bool
   changed_when: "'Done with success' in security_init.stdout"
 
 # Restart after init
