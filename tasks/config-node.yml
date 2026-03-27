@@ -165,18 +165,16 @@
   changed_when: false
 
 - name: Add MinIO access key
-  command: >
-    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
-  args:
-    stdin: "{{ minio_access_key }}"
+  ansible.builtin.shell: |
+    echo -n "{{ minio_access_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
   become: true
+  no_log: true
 
 - name: Add MinIO secret key
-  command: >
-    /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
-  args:
-    stdin: "{{ minio_secret_key }}"
+  ansible.builtin.shell: |
+    echo -n "{{ minio_secret_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
   become: true
+  no_log: true
 
 # ===========================
 # Fix permissions
