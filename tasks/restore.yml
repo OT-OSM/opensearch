@@ -18,6 +18,29 @@
   delay: 10
 
 # ===========================
+# Security Verification
+# ===========================
+
+- name: Fetch current user security context
+  uri:
+    url: "http://localhost:9200/_plugins/_security/api/account"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: user_account
+
+- name: Show user roles status
+  ansible.builtin.debug:
+    msg: |
+      User Name     : {{ user_account.json.user_name }}
+      Backend Roles : {{ user_account.json.backend_roles | join(', ') }}
+      Rules/Roles   : {{ user_account.json.roles | join(', ') }}
+      Context       : Expected 'all_access' or 'snapshot_management_full_access' for restore.
+
+# ===========================
 # Register Snapshot Repository
 # ===========================
 
