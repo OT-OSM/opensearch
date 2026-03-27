@@ -46,7 +46,7 @@
 
 - name: Create snapshot
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
+    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -58,6 +58,7 @@
       ignore_unavailable: true
       include_global_state: false
     status_code: [200, 201]
+    timeout: 300
 
 # ===========================
 # Show Snapshot Summary
