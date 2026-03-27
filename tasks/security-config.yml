@@ -115,8 +115,7 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  # Removed the TLS check here to allow template deployment in HTTP mode
-  # when: opensearch_use_tls | bool
+  when: opensearch_use_tls | bool
 
 - name: Deploy roles_mapping.yml to security config dir
   ansible.builtin.template:
@@ -125,8 +124,7 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  # Removed the TLS check here to allow template deployment in HTTP mode
-  # when: opensearch_use_tls | bool
+  when: opensearch_use_tls | bool
 
 # Initialize Security Index
 
@@ -141,10 +139,7 @@
     -key "{{ opensearch_admin_key_path }}"
     -h "{{ opensearch_api_host }}"
   register: security_init
-  # Allow security init in HTTP mode if transport certs are available
-  when: >
-    (opensearch_use_tls | bool) or
-    (not (opensearch_security_disabled | default(false) | bool))
+  when: opensearch_use_tls | bool
 
   changed_when: "'Done with success' in security_init.stdout"
 
