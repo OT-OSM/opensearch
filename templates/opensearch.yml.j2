@@ -90,17 +90,13 @@ plugins.security.ssl.transport.enforce_hostname_verification: false
 # HTTP TLS disabled → plain HTTP
 plugins.security.ssl.http.enabled: false
 
-# Admin DN
+# Demo Admin DN
 plugins.security.authcz.admin_dn:
-{% for dn in opensearch_admin_dn %}
-  - "{{ dn }}"
-{% endfor %}
+  - "CN=kirk,OU=client,O=client,L=test,C=de"
 
-# Node DN
+# Demo Node DN
 plugins.security.nodes_dn:
-{% for dn in opensearch_nodes_dn %}
-  - "{{ dn }}"
-{% endfor %}
+  - "CN=esnode,OU=client,O=client,L=test,C=de"
 
 {% endif %}
 
