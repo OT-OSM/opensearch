@@ -153,6 +153,7 @@
     -cert "{{ _securityadmin_cert }}"
     -key "{{ _securityadmin_key }}"
     -h "{{ opensearch_api_host }}"
+    -p "{{ opensearch_transport_port }}"
   register: security_init
   changed_when: "'Done with success' in security_init.stdout"
 
