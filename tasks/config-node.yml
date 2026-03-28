@@ -163,6 +163,8 @@
     set -o pipefail
     /usr/share/opensearch/bin/opensearch-keystore list | grep -q 's3.client.default.disable_ssl_certificate_validation' && \
     /usr/share/opensearch/bin/opensearch-keystore remove s3.client.default.disable_ssl_certificate_validation || true
+  args:
+    executable: /bin/bash
   become: true
   changed_when: false
 
