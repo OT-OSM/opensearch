@@ -191,7 +191,7 @@
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
 
-- name: Apply roles mapping (HTTP mode)
+- name: Apply roles mapping (HTTP mode with retry)
   uri:
     url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
     method: PUT
@@ -206,6 +206,9 @@
       backend_roles:
         - "admin"
   register: security_reload
+  retries: 10
+  delay: 15
+  until: security_reload.status in [200, 201]
 
 - name: Verify roles mapping applied
   uri:
@@ -216,3 +219,13 @@
     force_basic_auth: true
     validate_certs: false
   register: verify_roles
+  retries: 5
+  delay: 10
+  until: >
+    (
+      (verify_roles.json.all_access.users is defined and
+       'admin' in verify_roles.json.all_access.users)
+      or
+      (verify_roles.json.users is defined and
+       'admin' in verify_roles.json.users)
+    )
