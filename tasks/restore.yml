@@ -3,9 +3,13 @@
 # Fire Drill — Restore from MinIO Snapshot
 # ===========================
 
+- name: Define connection variables
+  ansible.builtin.set_fact:
+    _opensearch_url: "{{ 'https' if opensearch_use_tls | bool else 'http' }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}"
+
 - name: Wait for cluster to be healthy before restore
   uri:
-    url: "http://localhost:9200/_cluster/health"
+    url: "{{ _opensearch_url }}/_cluster/health"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -17,13 +21,27 @@
   retries: 15
   delay: 10
 
+- name: Verify restore permissions before proceeding
+  uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/authinfo"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: restore_auth_info
+  failed_when: >
+    (restore_auth_info.status != 200) or
+    ('all_access' not in restore_auth_info.json.roles)
+  msg: "User {{ opensearch_backup_username | default(opensearch_admin_username) }} lacks sufficient permissions for restore."
+
 # ===========================
 # Register Snapshot Repository
 # ===========================
 
 - name: Register MinIO snapshot repository
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -46,7 +64,7 @@
 
 - name: List all snapshots in repository
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/_all"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/_all"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -79,7 +97,7 @@
 
 - name: Close all user indices before restore
   uri:
-    url: "http://localhost:9200/*,-.*/_close"
+    url: "{{ _opensearch_url }}/*,-.*/_close"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -94,7 +112,7 @@
 
 - name: Restore snapshot
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -114,7 +132,7 @@
 
 - name: Wait for restore to complete (poll recovery status)
   uri:
-    url: "http://localhost:9200/_cat/recovery?active_only=true&format=json"
+    url: "{{ _opensearch_url }}/_cat/recovery?active_only=true&format=json"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -127,7 +145,7 @@
 
 - name: Verify cluster health after restore
   uri:
-    url: "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s"
+    url: "{{ _opensearch_url }}/_cluster/health?wait_for_status=yellow&timeout=60s"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
