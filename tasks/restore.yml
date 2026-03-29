@@ -106,13 +106,17 @@
     status_code: [200, 201]
   ignore_errors: true
 
+- name: Pause to ensure security settings are refreshed
+  ansible.builtin.pause:
+    seconds: 15
+
 # ===========================
 # Restore Snapshot
 # ===========================
 
 - name: Restore snapshot
   uri:
-    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -124,7 +128,7 @@
       ignore_unavailable: true
       include_global_state: false
       include_aliases: true
-    status_code: [200, 202]
+    status_code: [200, 201, 202]
 
 # ===========================
 # Wait for restore to complete
