@@ -127,21 +127,7 @@
     mode: "0600"
   when: opensearch_use_tls | bool
 
-# Initialize OpenSearch Security Index
-
-- name: Set securityadmin certificate facts (TLS)
-  ansible.builtin.set_fact:
-    _securityadmin_cacert: "{{ opensearch_root_ca_path }}"
-    _securityadmin_cert: "{{ opensearch_admin_cert_path }}"
-    _securityadmin_key: "{{ opensearch_admin_key_path }}"
-  when: opensearch_use_tls | bool
-
-- name: Set securityadmin certificate facts (HTTP/Demo)
-  ansible.builtin.set_fact:
-    _securityadmin_cacert: "{{ opensearch_config_dir }}/root-ca.pem"
-    _securityadmin_cert: "{{ opensearch_config_dir }}/kirk.pem"
-    _securityadmin_key: "{{ opensearch_config_dir }}/kirk-key.pem"
-  when: not opensearch_use_tls | bool
+# Initialize Security Index
 
 - name: Initialize OpenSearch Security Index
   ansible.builtin.command: >
@@ -149,12 +135,12 @@
     -cd "{{ opensearch_security_config_dir }}"
     -icl
     -nhnv
-    -cacert "{{ _securityadmin_cacert }}"
-    -cert "{{ _securityadmin_cert }}"
-    -key "{{ _securityadmin_key }}"
+    -cacert "{{ opensearch_root_ca_path }}"
+    -cert "{{ opensearch_admin_cert_path }}"
+    -key "{{ opensearch_admin_key_path }}"
     -h "{{ opensearch_api_host }}"
-    -p "{{ opensearch_transport_port }}"
   register: security_init
+  when: opensearch_use_tls | bool
   changed_when: "'Done with success' in security_init.stdout"
 
 # Restart after init
@@ -163,17 +149,21 @@
   ansible.builtin.systemd:
     name: opensearch
     state: restarted
-  when: security_init is changed
+  when:
+    - opensearch_use_tls | bool
+    - security_init is changed
 
 # Final wait
 
-- name: Wait for OpenSearch after security init
+- name: Wait for OpenSearch HTTPS after security init
   ansible.builtin.wait_for:
     host: "{{ opensearch_api_host }}"
     port: "{{ opensearch_http_port }}"
     delay: 15
     timeout: 180
-  when: security_init is changed
+  when:
+    - opensearch_use_tls | bool
+    - security_init is changed
 
 # Security Verification (Merged from security-config-http.yml)
 
