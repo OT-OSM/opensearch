@@ -5,10 +5,10 @@
 cluster.name: "{{ opensearch_cluster_name }}"
 node.name: "{{ inventory_hostname }}"
 
-path.data: {{ opensearch_data_path }}
-path.logs: {{ opensearch_logs_path }}
+path.data: "{{ opensearch_data_path }}"
+path.logs: "{{ opensearch_logs_path }}"
 
-network.host: {{ opensearch_network_host }}
+network.host: "{{ opensearch_network_host }}"
 http.port: {{ opensearch_http_port }}
 transport.port: {{ opensearch_transport_port }}
 
@@ -34,13 +34,9 @@ plugins.security.disabled: {{ opensearch_security_disabled | default(false) | lo
 plugins.security.allow_default_init_securityindex: true
 plugins.security.system_indices.enabled: true
 
-plugins.security.restapi.roles_enabled:
-  - all_access
-  - security_rest_api_access
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
 
-plugins.security.snapshot_restore.roles_enabled:
-  - all_access
-  - snapshot_management_full_access
+plugins.security.enable_snapshot_restore_privilege: true
 
 
 # ========================
@@ -108,7 +104,7 @@ plugins.security.nodes_dn:
 # ========================
 # S3 Snapshot (MinIO)
 # ========================
-{% if opensearch_backup_enabled | bool %}
+{% if (opensearch_backup_enabled | bool) or (opensearch_restore_enabled | bool) %}
 
 s3.client.default.endpoint: "{{ minio_endpoint }}"
 s3.client.default.protocol: "{{ minio_protocol }}"
