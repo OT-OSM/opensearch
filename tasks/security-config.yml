@@ -191,6 +191,30 @@
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
 
+- name: Debug cluster security state across nodes
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ inventory_hostname }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: debug_user_state
+
+- name: Show user state for current node
+  debug:
+    msg: "Node {{ inventory_hostname }} sees user {{ opensearch_admin_username }} with backend_roles: {{ debug_user_state.json[opensearch_admin_username].backend_roles | default('NONE') }}"
+
+- name: Delete conflicting 'admin' role if it exists (to prevent collisions)
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ inventory_hostname }}:{{ opensearch_http_port }}/_plugins/_security/api/roles/admin"
+    method: DELETE
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 404]
+
 - name: Remove backend roles from admin user (PATCH)
   uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
@@ -228,16 +252,22 @@
   delay: 10
   until: mapping_update.status in [200, 201]
 
-- name: Double check mapping via GET
+- name: Debug final authinfo
   uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    url: "{{ _opensearch_protocol }}://{{ item }}:{{ opensearch_http_port }}/_plugins/_security/authinfo"
     method: GET
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
-  register: check_mapping
-  when: mapping_update is success
+  register: final_auth_check
+  delegate_to: "{{ item }}"
+  loop: "{{ ansible_play_hosts }}"
+
+- name: Show roles seen by each node
+  debug:
+    msg: "Node {{ item.item }} sees roles: {{ item.json.roles }}"
+  loop: "{{ final_auth_check.results }}"
 
 - name: Verify roles mapping applied
   uri:
