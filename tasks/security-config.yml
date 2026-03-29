@@ -191,6 +191,22 @@
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
 
+- name: Remove backend roles from admin user (PATCH)
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
+    method: PATCH
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      - op: replace
+        path: /backend_roles
+        value: []
+  register: patch_user
+  failed_when: false # Ignore if PATCH is not supported or fails, we will fallback to mappings
+
 - name: Apply roles mapping for admin user (Securely with retry)
   uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
@@ -206,6 +222,7 @@
   loop:
     - "all_access"
     - "snapshot_management_full_access"
+    - "manage_snapshots"
   register: mapping_update
   retries: 5
   delay: 10

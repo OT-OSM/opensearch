@@ -33,7 +33,7 @@
   failed_when: >
     (restore_auth_info.status != 200) or
     ('all_access' not in restore_auth_info.json.roles) or
-    ('snapshot_management_full_access' not in restore_auth_info.json.roles)
+    ('snapshot_management_full_access' not in restore_auth_info.json.roles and 'manage_snapshots' not in restore_auth_info.json.roles)
 
 # ===========================
 # Register Snapshot Repository
