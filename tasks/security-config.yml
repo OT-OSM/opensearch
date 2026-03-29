@@ -203,8 +203,6 @@
     body:
       users:
         - "admin"
-      backend_roles:
-        - "admin"
   register: security_reload
   retries: 10
   delay: 15
