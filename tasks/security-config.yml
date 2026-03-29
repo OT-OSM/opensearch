@@ -214,6 +214,7 @@
     force_basic_auth: true
     validate_certs: false
     status_code: [200, 404]
+  run_once: true
 
 - name: Remove backend roles from admin user (PATCH)
   uri:
@@ -229,7 +230,8 @@
         path: /backend_roles
         value: []
   register: patch_user
-  failed_when: false # Ignore if PATCH is not supported or fails, we will fallback to mappings
+  failed_when: false # Ignore if PATCH is not supported or fails
+  run_once: true
 
 - name: Create explicit restore role with literal permissions
   uri:
@@ -253,7 +255,9 @@
             - "indices:data/write/index"
             - "indices:admin/close"
             - "indices:admin/open"
+    status_code: [200, 201]
   register: create_restore_role
+  run_once: true
 
 - name: Apply roles mapping for admin user (Securely with retry)
   uri:
@@ -267,6 +271,7 @@
     body:
       users:
         - "{{ opensearch_admin_username }}"
+    status_code: [200, 201]
   loop:
     - "all_access"
     - "snapshot_management_full_access"
@@ -276,6 +281,7 @@
   retries: 5
   delay: 10
   until: mapping_update.status in [200, 201]
+  run_once: true
 
 - name: Debug final authinfo
   uri:
