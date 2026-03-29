@@ -191,23 +191,6 @@
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
 
-- name: Ensure internal admin user is updated (Securely with retry)
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
-    method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      password: "{{ opensearch_admin_password }}"
-      backend_roles: []
-  register: user_update
-  retries: 5
-  delay: 10
-  until: user_update.status in [200, 201]
-
 - name: Apply roles mapping for admin user (Securely with retry)
   uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
