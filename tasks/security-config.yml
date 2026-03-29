@@ -191,9 +191,26 @@
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
 
-- name: Apply roles mapping (Securely with retry)
+- name: Ensure internal admin user is updated (Securely with retry)
   uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      password: "{{ opensearch_admin_password }}"
+      backend_roles: []
+  register: user_update
+  retries: 5
+  delay: 10
+  until: user_update.status in [200, 201]
+
+- name: Apply roles mapping for admin user (Securely with retry)
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
     method: PUT
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
@@ -203,10 +220,13 @@
     body:
       users:
         - "{{ opensearch_admin_username }}"
-  register: security_reload
-  retries: 10
-  delay: 15
-  until: security_reload.status in [200, 201]
+  loop:
+    - "all_access"
+    - "snapshot_management_full_access"
+  register: mapping_update
+  retries: 5
+  delay: 10
+  until: mapping_update.status in [200, 201]
 
 - name: Verify roles mapping applied
   uri:
@@ -239,4 +259,5 @@
   register: auth_info
   failed_when: >
     (auth_info.status != 200) or
-    ('all_access' not in auth_info.json.roles)
+    ('all_access' not in auth_info.json.roles) or
+    ('snapshot_management_full_access' not in auth_info.json.roles)
