@@ -228,6 +228,17 @@
   delay: 10
   until: mapping_update.status in [200, 201]
 
+- name: Double check mapping via GET
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: check_mapping
+  when: mapping_update is success
+
 - name: Verify roles mapping applied
   uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
