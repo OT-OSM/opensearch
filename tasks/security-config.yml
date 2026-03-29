@@ -190,3 +190,29 @@
     msg: >
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
+
+- name: Apply roles mapping (HTTP mode)
+  uri:
+    url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      users:
+        - "admin"
+      backend_roles:
+        - "admin"
+  register: security_reload
+
+- name: Verify roles mapping applied
+  uri:
+    url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: verify_roles
