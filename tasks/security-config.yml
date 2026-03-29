@@ -231,6 +231,30 @@
   register: patch_user
   failed_when: false # Ignore if PATCH is not supported or fails, we will fallback to mappings
 
+- name: Create explicit restore role with literal permissions
+  uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/roles/restore_role"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      cluster_permissions:
+        - "cluster:admin/snapshot/restore"
+        - "cluster:admin/snapshot/get"
+        - "cluster:monitor/health"
+      index_permissions:
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - "indices:admin/create"
+            - "indices:data/write/index"
+            - "indices:admin/close"
+            - "indices:admin/open"
+  register: create_restore_role
+
 - name: Apply roles mapping for admin user (Securely with retry)
   uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
@@ -247,6 +271,7 @@
     - "all_access"
     - "snapshot_management_full_access"
     - "manage_snapshots"
+    - "restore_role"
   register: mapping_update
   retries: 5
   delay: 10
