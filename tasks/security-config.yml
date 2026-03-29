@@ -240,4 +240,3 @@
   failed_when: >
     (auth_info.status != 200) or
     ('all_access' not in auth_info.json.roles)
-  msg: "User {{ opensearch_admin_username }} does not have all_access role. Restore will fail."
