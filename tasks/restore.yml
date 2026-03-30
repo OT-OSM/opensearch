@@ -186,7 +186,8 @@
 
 - name: Close all open user indices before restore
   uri:
-    url: "{{ _opensearch_url }}/*/_close"
+    #url: "{{ _opensearch_url }}/*/_close"
+    url: "{{ _opensearch_url }}/*,-.*/_close"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -208,22 +209,36 @@
 # Restore Snapshot
 # ===========================
 
+#- name: Restore snapshot
+ # uri:
+  #  url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
+   # method: POST
+    #user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    #password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    #force_basic_auth: true
+    #validate_certs: false
+    #body_format: json
+    #body:
+     # indices: "{{ opensearch_restore_indices | default('*') }}"
+      #ignore_unavailable: true
+      #include_global_state: false
+      #include_aliases: true
+    #status_code: [200, 201, 202]
+  #register: restore_result
+
 - name: Restore snapshot
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
     method: POST
-    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    force_basic_auth: true
-    validate_certs: false
+    # ... auth variables ...
     body_format: json
     body:
-      indices: "{{ opensearch_restore_indices | default('*') }}"
+      # CRITICAL: Exclude system indices here too
+      indices: "{{ opensearch_restore_indices | default('*,-.*') }}"
       ignore_unavailable: true
       include_global_state: false
       include_aliases: true
     status_code: [200, 201, 202]
-  register: restore_result
 
 - name: Show restore accepted
   ansible.builtin.debug:
