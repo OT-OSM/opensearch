@@ -39,49 +39,8 @@
       | Roles: {{ restore_auth_info.json.roles | default([]) }}
 
 # ===========================
-# Inspect and Patch all_access role
-# (OpenSearch security index may have stripped wildcard permissions on init)
+# Ensure Restore Permissions via Security API
 # ===========================
-
-- name: Fetch current all_access role definition (diagnostic)
-  uri:
-    url: "{{ _opensearch_url }}/_plugins/_security/api/roles/all_access"
-    method: GET
-    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    force_basic_auth: true
-    validate_certs: false
-  register: all_access_role
-  failed_when: false
-
-- name: Show all_access role permissions (diagnostic)
-  ansible.builtin.debug:
-    msg: "all_access role: {{ all_access_role.json | to_nice_json }}"
-
-- name: Patch all_access role to have full wildcard permissions
-  uri:
-    url: "{{ _opensearch_url }}/_plugins/_security/api/roles/all_access"
-    method: PUT
-    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      cluster_permissions:
-        - "*"
-      index_permissions:
-        - index_patterns:
-            - "*"
-          allowed_actions:
-            - "*"
-      tenant_permissions:
-        - tenant_patterns:
-            - "*"
-          allowed_actions:
-            - "kibana_all_write"
-    status_code: [200, 201]
-  register: patch_all_access
 
 - name: Create / update firedrill_restore_role with explicit snapshot permissions
   uri:
@@ -141,8 +100,7 @@
 
 # ===========================
 # CRITICAL: Flush Security Plugin Cache
-# Without this the in-memory permission cache serves stale (empty) results
-# even after role/mapping changes via the REST API
+# The in-memory permission cache must be flushed after any role/mapping change.
 # ===========================
 
 - name: Flush OpenSearch security plugin cache
@@ -223,7 +181,7 @@
     msg: "Restoring from snapshot: {{ opensearch_restore_snapshot_name }}"
 
 # ===========================
-# Prepare indices for restore
+# Close indices before restore (best effort)
 # ===========================
 
 - name: Close all open user indices before restore
@@ -242,26 +200,9 @@
   register: close_result
   ignore_errors: true
 
-- name: Delete open user indices if close was not permitted (fallback)
-  uri:
-    url: "{{ _opensearch_url }}/*"
-    method: DELETE
-    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      expand_wildcards: open
-      ignore_unavailable: true
-      allow_no_indices: true
-    status_code: [200, 201]
-  when: close_result is failed
-  ignore_errors: true
-
 - name: Pause to ensure cluster settles before restore
   ansible.builtin.pause:
-    seconds: 15
+    seconds: 10
 
 # ===========================
 # Restore Snapshot
