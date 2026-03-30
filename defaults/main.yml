@@ -89,6 +89,9 @@ opensearch_auth_type: "basic" # Options: basic, openid, saml
 opensearch_admin_username: "admin"
 opensearch_admin_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_admin_password_hash: ""
+# Aliases used for API health-check calls (defaults to admin credentials)
+opensearch_api_username: "{{ opensearch_admin_username }}"
+opensearch_api_password: "{{ opensearch_admin_password }}"
 opensearch_kibanaserver_username: "kibanaserver"
 opensearch_kibanaserver_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_kibanaserver_password_hash: ""

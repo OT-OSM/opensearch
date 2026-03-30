@@ -1,7 +1,11 @@
 ---
+- name: Define connection variables
+  ansible.builtin.set_fact:
+    _opensearch_url: "{{ 'https' if opensearch_use_tls | bool else 'http' }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}"
+
 - name: Wait for cluster green
   uri:
-    url: "http://localhost:9200/_cluster/health"
+    url: "{{ _opensearch_url }}/_cluster/health"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -19,7 +23,7 @@
 
 - name: Create snapshot repository
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -37,7 +41,7 @@
     status_code: [200, 201]
 
 - name: Wait before snapshot (cluster stable)
-  pause:
+  ansible.builtin.pause:
     seconds: 30
 
 # ===========================
@@ -46,10 +50,10 @@
 
 - name: Create snapshot
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
     method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
     force_basic_auth: true
     validate_certs: false
     body_format: json
@@ -66,10 +70,10 @@
 
 - name: Fetch snapshot status
   uri:
-    url: "http://localhost:9200/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
     method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
     force_basic_auth: true
     validate_certs: false
     return_content: true

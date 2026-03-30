@@ -87,7 +87,7 @@
     mode: "0700"
     recurse: true
 
-# Restart OpenSearch
+# Restart OpenSearch (TLS mode only — config changed)
 
 - name: Restart OpenSearch
   ansible.builtin.systemd:
@@ -107,7 +107,7 @@
     timeout: 180
   when: opensearch_use_tls | bool
 
-# Deploy Security Config templates to the security config dir
+# Deploy Security Config templates — runs in BOTH TLS and HTTP modes
 
 - name: Deploy internal_users.yml to security config dir
   ansible.builtin.template:
@@ -116,7 +116,6 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: opensearch_use_tls | bool
 
 - name: Deploy roles_mapping.yml to security config dir
   ansible.builtin.template:
@@ -125,9 +124,8 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: opensearch_use_tls | bool
 
-# Initialize Security Index
+# Initialize Security Index via securityadmin.sh (TLS mode only)
 
 - name: Initialize OpenSearch Security Index
   ansible.builtin.command: >
@@ -143,7 +141,7 @@
   when: opensearch_use_tls | bool
   changed_when: "'Done with success' in security_init.stdout"
 
-# Restart after init
+# Restart after init (TLS only)
 
 - name: Restart OpenSearch after security init
   ansible.builtin.systemd:
@@ -153,7 +151,7 @@
     - opensearch_use_tls | bool
     - security_init is changed
 
-# Final wait
+# Final wait (TLS only)
 
 - name: Wait for OpenSearch HTTPS after security init
   ansible.builtin.wait_for:
@@ -165,7 +163,9 @@
     - opensearch_use_tls | bool
     - security_init is changed
 
-# Security Verification (Merged from security-config-http.yml)
+# ===========================
+# Security Verification — runs in BOTH TLS and HTTP modes
+# ===========================
 
 - name: Determine protocol
   ansible.builtin.set_fact:
@@ -175,8 +175,8 @@
   ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
-    user: "{{ opensearch_api_username }}"
-    password: "{{ opensearch_api_password }}"
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
     status_code: 200
@@ -190,74 +190,6 @@
     msg: >
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
-
-- name: Debug cluster security state across nodes
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ inventory_hostname }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
-    method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-  register: debug_user_state
-
-- name: Show user state for current node
-  debug:
-    msg: "Node {{ inventory_hostname }} sees user {{ opensearch_admin_username }} with backend_roles: {{ debug_user_state.json[opensearch_admin_username].backend_roles | default('NONE') }}"
-
-- name: Delete conflicting 'admin' role if it exists (to prevent collisions)
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ inventory_hostname }}:{{ opensearch_http_port }}/_plugins/_security/api/roles/admin"
-    method: DELETE
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    status_code: [200, 404]
-  run_once: true
-
-- name: Remove backend roles from admin user (PATCH)
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/internalusers/{{ opensearch_admin_username }}"
-    method: PATCH
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      - op: replace
-        path: /backend_roles
-        value: []
-  register: patch_user
-  failed_when: false # Ignore if PATCH is not supported or fails
-  run_once: true
-
-- name: Create explicit restore role with literal permissions
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/roles/restore_role"
-    method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      cluster_permissions:
-        - "cluster:admin/snapshot/restore"
-        - "cluster:admin/snapshot/get"
-        - "cluster:monitor/health"
-      index_permissions:
-        - index_patterns:
-            - "*"
-          allowed_actions:
-            - "indices:admin/create"
-            - "indices:data/write/index"
-            - "indices:admin/close"
-            - "indices:admin/open"
-    status_code: [200, 201]
-  register: create_restore_role
-  run_once: true
 
 - name: Apply roles mapping for admin user (Securely with retry)
   uri:
@@ -278,29 +210,11 @@
     - "all_access"
     - "snapshot_management_full_access"
     - "manage_snapshots"
-    - "restore_role"
   register: mapping_update
   retries: 5
   delay: 10
   until: mapping_update.status in [200, 201]
   run_once: true
-
-- name: Debug final authinfo
-  uri:
-    url: "{{ _opensearch_protocol }}://{{ item }}:{{ opensearch_http_port }}/_plugins/_security/authinfo"
-    method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-  register: final_auth_check
-  delegate_to: "{{ item }}"
-  loop: "{{ ansible_play_hosts }}"
-
-- name: Show roles seen by each node
-  debug:
-    msg: "Node {{ item.item }} sees roles: {{ item.json.roles }}"
-  loop: "{{ final_auth_check.results }}"
 
 - name: Verify roles mapping applied
   uri:
