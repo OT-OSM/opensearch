@@ -5,10 +5,10 @@
 cluster.name: "{{ opensearch_cluster_name }}"
 node.name: "{{ inventory_hostname }}"
 
-path.data: "{{ opensearch_data_path }}"
-path.logs: "{{ opensearch_logs_path }}"
+path.data: {{ opensearch_data_path }}
+path.logs: {{ opensearch_logs_path }}
 
-network.host: "{{ opensearch_network_host }}"
+network.host: {{ opensearch_network_host }}
 http.port: {{ opensearch_http_port }}
 transport.port: {{ opensearch_transport_port }}
 
@@ -32,13 +32,10 @@ discovery.type: single-node
 plugins.security.disabled: {{ opensearch_security_disabled | default(false) | lower }}
 
 plugins.security.allow_default_init_securityindex: true
-plugins.security.system_indices.enabled: true
 
 plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
 
 plugins.security.enable_snapshot_restore_privilege: true
-plugins.security.check_snapshot_restore_write_privileges: false
-plugins.security.snapshot_restore.roles: "all_access,snapshot_management_full_access,manage_snapshots,restore_role"
 
 
 # ========================
