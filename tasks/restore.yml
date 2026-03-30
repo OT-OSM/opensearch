@@ -230,15 +230,19 @@
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
     method: POST
-    # ... auth variables ...
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
     body_format: json
     body:
-      # CRITICAL: Exclude system indices here too
-      indices: "{{ opensearch_restore_indices | default('*,-.*') }}"
-      ignore_unavailable: true
+      indices: "*,-.*" # As discussed, keep system indices excluded!
       include_global_state: false
-      include_aliases: true
     status_code: [200, 201, 202]
+  register: restore_result
+  # ADD THIS:
+  retries: 5
+  delay: 10
+  until: restore_result.status == 200 or restore_result.status == 201 or restore_result.status == 202
 
 - name: Show restore accepted
   ansible.builtin.debug:
