@@ -271,6 +271,8 @@
     body:
       users:
         - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
     status_code: [200, 201]
   loop:
     - "all_access"

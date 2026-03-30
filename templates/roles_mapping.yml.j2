@@ -6,6 +6,8 @@ all_access:
   reserved: false
   users:
     - "{{ opensearch_admin_username }}"
+  backend_roles:
+    - "admin"
 
 kibana_server:
   reserved: true
