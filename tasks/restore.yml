@@ -106,9 +106,9 @@
     status_code: [200, 201]
   ignore_errors: true
 
-- name: Pause to ensure security settings are refreshed
+- name: Pause to ensure security settings are fully synchronized across cluster
   ansible.builtin.pause:
-    seconds: 15
+    seconds: 30
 
 # ===========================
 # Restore Snapshot
