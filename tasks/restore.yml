@@ -63,6 +63,7 @@
         - "cluster:admin/repository/delete"
         - "cluster:admin/repository/verify"
         - "cluster:monitor/*"
+        - "cluster:admin/snapshot/*"
       index_permissions:
         - index_patterns:
             - "*"
@@ -73,6 +74,9 @@
             - "indices:admin/create"
             - "indices:admin/mapping/put"
             - "indices:admin/settings/update"
+            - "indices:admin/get"
+            - "indices:admin/exists"
+            - "indices:admin/aliases"
             - "indices:data/write/*"
             - "indices:data/read/*"
             - "indices:monitor/*"
@@ -99,13 +103,12 @@
   delay: 5
 
 # ===========================
-# CRITICAL: Flush Security Plugin Cache
-# The in-memory permission cache must be flushed after any role/mapping change.
+# CRITICAL: Flush Security Plugin Cache on ALL nodes
 # ===========================
 
-- name: Flush OpenSearch security plugin cache
+- name: Flush OpenSearch security plugin cache on all nodes
   uri:
-    url: "{{ _opensearch_url }}/_plugins/_security/api/cache"
+    url: "{{ 'https' if opensearch_use_tls | bool else 'http' }}://{{ hostvars[item].ansible_host | default(item) }}:{{ opensearch_http_port }}/_plugins/_security/api/cache"
     method: DELETE
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -114,10 +117,7 @@
     status_code: [200, 201]
   register: cache_flush
   failed_when: false
-
-- name: Show cache flush result
-  ansible.builtin.debug:
-    msg: "Security cache flush: {{ cache_flush.json | default(cache_flush.msg) }}"
+  loop: "{{ groups['opensearch'] }}"
 
 - name: Wait for security cache to propagate across cluster nodes
   ansible.builtin.pause:
@@ -180,13 +180,16 @@
   ansible.builtin.debug:
     msg: "Restoring from snapshot: {{ opensearch_restore_snapshot_name }}"
 
+- name: List indices in snapshot (diagnostic)
+  ansible.builtin.debug:
+    msg: "Indices in snapshot: {{ (snapshot_list.json.snapshots | selectattr('snapshot', 'equalto', opensearch_restore_snapshot_name) | list | first).indices | join(', ') }}"
+
 # ===========================
 # Close indices before restore (best effort)
 # ===========================
 
 - name: Close all open user indices before restore
   uri:
-    #url: "{{ _opensearch_url }}/*/_close"
     url: "{{ _opensearch_url }}/*,-.*/_close"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -210,21 +213,21 @@
 # ===========================
 
 #- name: Restore snapshot
- # uri:
-  #  url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
-   # method: POST
-    #user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    #password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    #force_basic_auth: true
-    #validate_certs: false
-    #body_format: json
-    #body:
-     # indices: "{{ opensearch_restore_indices | default('*') }}"
-      #ignore_unavailable: true
-      #include_global_state: false
-      #include_aliases: true
-    #status_code: [200, 201, 202]
-  #register: restore_result
+# uri:
+#  url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
+# method: POST
+#user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+#password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+#force_basic_auth: true
+#validate_certs: false
+#body_format: json
+#body:
+# indices: "{{ opensearch_restore_indices | default('*') }}"
+#ignore_unavailable: true
+#include_global_state: false
+#include_aliases: true
+#status_code: [200, 201, 202]
+#register: restore_result
 
 - name: Restore snapshot
   uri:
@@ -236,8 +239,8 @@
     validate_certs: false
     body_format: json
     body:
-      # 1. Only restore data indices, exclude system indices (.*)
-      indices: "*,-.*" 
+      # 1. Restore all data indices; exclude system indices (.*)
+      indices: "*"
       # 2. DO NOT restore global state (templates, security settings)
       include_global_state: false
       include_aliases: true
