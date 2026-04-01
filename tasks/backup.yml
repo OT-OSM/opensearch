@@ -40,6 +40,34 @@
         path_style_access: true
     status_code: [200, 201]
 
+# ===========================
+# Create Test Data (Firedrill)
+# ===========================
+
+- name: Create firedrill test index
+  uri:
+    url: "{{ _opensearch_url }}/firedrill-test-index"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+
+- name: Add test document to firedrill index
+  uri:
+    url: "{{ _opensearch_url }}/firedrill-test-index/_doc/1"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      status: "firedrill-success"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+    status_code: [200, 201]
+
 - name: Wait before snapshot (cluster stable)
   ansible.builtin.pause:
     seconds: 30

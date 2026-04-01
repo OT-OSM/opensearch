@@ -239,7 +239,7 @@
     validate_certs: false
     body_format: json
     body:
-      # 1. Restore all data indices; exclude system indices (.*)
+      # 1. Restore all data indices found in snapshot (matched by "*")
       indices: "*"
       # 2. DO NOT restore global state (templates, security settings)
       include_global_state: false
