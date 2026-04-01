@@ -123,6 +123,13 @@
   ansible.builtin.pause:
     seconds: 30
 
+- name: Verify network connectivity to MinIO
+  ansible.builtin.wait_for:
+    host: "{{ minio_endpoint | regex_replace('http://|https://|:.*', '') }}"
+    port: 9000  # Double check if your MinIO is on 9000 or 9001
+    timeout: 5
+    msg: "Cannot reach MinIO at {{ minio_endpoint }}. Check firewall or MinIO service status."
+
 # ===========================
 # Register Snapshot Repository
 # ===========================
