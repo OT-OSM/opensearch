@@ -1,0 +1,118 @@
+# ========================
+# Cluster
+# ========================
+
+cluster.name: "{{ opensearch_cluster_name }}"
+node.name: "{{ inventory_hostname }}"
+
+path.data: {{ opensearch_data_path }}
+path.logs: {{ opensearch_logs_path }}
+
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+
+{% if opensearch_bootstrap_memory_lock | bool %}
+bootstrap.memory_lock: true
+{% endif %}
+
+{% if opensearch_enable_cluster_mode | bool and (opensearch_discovery_seed_hosts | length > 0) %}
+node.roles: {{ opensearch_node_roles | to_json }}
+discovery.seed_hosts: {{ opensearch_discovery_seed_hosts | to_json }}
+cluster.initial_master_nodes: {{ opensearch_initial_master_nodes | to_json }}
+{% else %}
+discovery.type: single-node
+{% endif %}
+
+
+# ========================
+# Security Plugin
+# ========================
+
+plugins.security.disabled: {{ opensearch_security_disabled | default(false) | lower }}
+
+plugins.security.allow_default_init_securityindex: true
+plugins.security.system_indices.enabled: false
+
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: false
+
+
+# ========================
+# TLS MODE (HTTPS)
+# ========================
+
+{% if opensearch_use_tls | bool %}
+
+plugins.security.allow_unsafe_democertificates: {{ opensearch_allow_unsafe_democertificates | default(false) | lower }}
+
+# Transport TLS (cluster communication)
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_transport_node_cert_path }}"
+plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_transport_node_key_path }}"
+plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_transport_root_ca_path }}"
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# HTTP TLS (client → OpenSearch)
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: "{{ opensearch_node_cert_path }}"
+plugins.security.ssl.http.pemkey_filepath: "{{ opensearch_node_key_path }}"
+plugins.security.ssl.http.pemtrustedcas_filepath: "{{ opensearch_root_ca_path }}"
+
+# Admin DN
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
+
+# Node DN
+plugins.security.nodes_dn:
+{% for dn in opensearch_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
+
+{% else %}
+
+# ========================
+# HTTP MODE (HTTP + AUTH)
+# ========================
+
+plugins.security.allow_unsafe_democertificates: true
+
+# Transport TLS REQUIRED for security plugin
+plugins.security.ssl.transport.enabled: true
+plugins.security.ssl.transport.pemcert_filepath: "{{ opensearch_config_dir }}/esnode.pem"
+plugins.security.ssl.transport.pemkey_filepath: "{{ opensearch_config_dir }}/esnode-key.pem"
+plugins.security.ssl.transport.pemtrustedcas_filepath: "{{ opensearch_config_dir }}/root-ca.pem"
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# HTTP TLS disabled → plain HTTP
+plugins.security.ssl.http.enabled: false
+
+# Demo Admin DN
+plugins.security.authcz.admin_dn:
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
+
+# Demo Node DN
+plugins.security.nodes_dn:
+{% for dn in opensearch_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
+
+{% endif %}
+
+
+# ========================
+# S3 Snapshot (MinIO)
+# ========================
+{% if (opensearch_backup_enabled | bool) or (opensearch_restore_enabled | bool) %}
+
+s3.client.default.endpoint: "{{ minio_endpoint }}"
+s3.client.default.protocol: "{{ minio_protocol }}"
+s3.client.default.path_style_access: true
+
+{% endif %}

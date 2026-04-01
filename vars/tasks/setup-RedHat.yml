@@ -1,0 +1,12 @@
+---
+# RedHat/Amazon Setup
+# Dependencies like curl are usually pre-installed or handled by Ansible modules.
+# We skip explicit installation to avoid conflicts (e.g., curl vs curl-minimal on Amazon Linux 2023).
+- name: Install required dependencies (RedHat/Amazon)
+  ansible.builtin.package:
+    name: "{{ opensearch_prerequisites }}"
+    state: present
+  register: deps_install_rh
+  until: deps_install_rh is succeeded
+  retries: 5
+  delay: 10

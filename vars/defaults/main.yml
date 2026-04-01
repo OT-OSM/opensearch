@@ -1,0 +1,156 @@
+---
+# OpenSearch Version Control
+opensearch_version: "2.11.1"
+opensearch_major_version: "{{ opensearch_version.split('.')[0] }}.x"
+opensearch_dashboards_version: "{{ opensearch_version }}"
+
+# Installation Toggles
+opensearch_install_node: true
+opensearch_install_dashboard: true
+opensearch_enable_cluster_mode: true
+opensearch_bootstrap_cluster: false
+
+# Cluster Configuration
+opensearch_cluster_name: "opensearch-cluster"
+opensearch_node_name: "{{ inventory_hostname }}"
+opensearch_node_roles:
+  - cluster_manager
+  - data
+  - ingest
+opensearch_discovery_seed_hosts: "{{ groups['opensearch'] | default([]) }}"
+opensearch_initial_master_nodes: "{{ groups['opensearch'] | default([]) }}"
+
+# Domain / API Hostnames
+opensearch_domain_name: "{{ undef() }}"
+opensearch_api_host: "{{ opensearch_domain_name }}"
+opensearch_dashboards_public_host: "{{ opensearch_domain_name | default('localhost') }}"
+
+# Network & Connectivity
+opensearch_network_host: "0.0.0.0"
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
+
+# Java Configuration
+opensearch_java_package: "default-jdk-headless" # Overridden by vars/{os}.yml
+opensearch_java_home: "/usr/share/opensearch/jdk"
+
+# JVM Heap Size (Recommended: 50% of available RAM, up to 32GB)
+opensearch_jvm_heap_size: "1g"
+opensearch_limits:
+  nofile: 65536
+  nproc: 4096
+  memlock: "unlimited"
+
+# System Tuning
+opensearch_vm_max_map_count: 262144
+opensearch_disable_swap: false
+opensearch_configure_hostname: true
+opensearch_bootstrap_memory_lock: false
+
+# Systemd / Resource Limits
+opensearch_systemd_timeout: 900
+opensearch_systemd_limit_nofile: 65536
+opensearch_systemd_limit_nproc: 4096
+
+# Path Configuration
+opensearch_data_path: /var/lib/opensearch
+opensearch_purge_data: false
+opensearch_logs_path: /var/log/opensearch
+opensearch_config_dir: "/etc/opensearch"
+opensearch_certs_dir: "{{ opensearch_config_dir }}/certs"
+opensearch_security_config_dir: "/usr/share/opensearch/plugins/opensearch-security/securityconfig"
+
+# Index Defaults
+opensearch_number_of_shards: 1
+opensearch_number_of_replicas: 0
+
+# Security / TLS
+opensearch_use_tls: false
+
+# HTTP layer (External Client-to-Node)
+opensearch_root_ca_path: "/etc/opensearch/chain.pem"
+opensearch_node_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_node_key_path: "/etc/opensearch/privkey.pem"
+
+# Transport layer (Internal Node-to-Node)
+opensearch_transport_root_ca_path: "/etc/opensearch/chain.pem"
+opensearch_transport_node_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_transport_node_key_path: "/etc/opensearch/privkey.pem"
+
+# Admin certificates (for securityadmin.sh)
+opensearch_admin_cert_path: "/etc/opensearch/fullchain.pem"
+opensearch_admin_key_path: "/etc/opensearch/privkey.pem"
+opensearch_admin_dn: []
+opensearch_nodes_dn: []
+
+# Authentication / SSO
+opensearch_enable_sso: false
+opensearch_auth_type: "basic" # Options: basic, openid, saml
+opensearch_admin_username: "admin"
+opensearch_admin_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
+opensearch_admin_password_hash: ""
+# Aliases used for API health-check calls (defaults to admin credentials)
+opensearch_api_username: "{{ opensearch_admin_username }}"
+opensearch_api_password: "{{ opensearch_admin_password }}"
+opensearch_kibanaserver_username: "kibanaserver"
+opensearch_kibanaserver_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
+opensearch_kibanaserver_password_hash: ""
+
+# OpenID Connect Configuration (when opensearch_auth_type == 'openid')
+opensearch_openid_connect_url: ""
+opensearch_openid_client_id: ""
+opensearch_openid_client_secret: ""
+opensearch_openid_scope: "openid profile email"
+opensearch_openid_base_redirect_url: ""
+
+# SAML Configuration (when opensearch_auth_type == 'saml')
+opensearch_saml_idp_metadata_url: ""
+opensearch_saml_entity_id: ""
+opensearch_saml_exchange_key: ""
+
+# Access Control
+opensearch_access_control_enabled: false
+opensearch_custom_roles: []
+opensearch_custom_role_mappings: []
+opensearch_custom_internal_users: []
+
+# Metrics / Monitoring
+opensearch_metrics_enabled: false
+opensearch_prometheus_port: 9600
+opensearch_performance_analyzer_enabled: false
+
+# OpenSearch Dashboards
+opensearch_dashboards_public_protocol: "http"
+opensearch_dashboards_port: 5601
+opensearch_dashboards_host: "0.0.0.0"
+opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
+opensearch_dashboards_admin_username: "admin"
+opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
+opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
+
+# ===========================
+# Backup / Snapshot (MinIO)
+# ===========================
+
+opensearch_backup_enabled: false
+opensearch_restore_enabled: false
+opensearch_restore_indices: "*" # restore all indices; override to target specific ones
+opensearch_restore_snapshot_name: "" # leave empty to auto-pick the latest SUCCESS snapshot
+
+opensearch_backup_username: "{{ opensearch_admin_username }}"
+opensearch_backup_password: "{{ opensearch_admin_password }}"
+
+opensearch_backup_repo: "minio_repo"
+opensearch_backup_bucket: "opensearch-backup"
+opensearch_backup_name: "snapshot_{{ ansible_date_time.epoch }}"
+
+minio_endpoint: "minio.ldc.opstree.dev:9000"
+minio_protocol: "https"
+
+# Credentials — sourced from dedicated Semaphore env vars
+minio_access_key: "{{ lookup('env', 'OPENSEARCH_MINIO_ACCESS_KEY') }}"
+minio_secret_key: "{{ lookup('env', 'OPENSEARCH_MINIO_SECRET_KEY') }}"
+
+# Extra S3 client options
+opensearch_s3_path_style_access: true
+opensearch_force_clean_data: false

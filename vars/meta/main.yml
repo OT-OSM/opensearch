@@ -1,0 +1,32 @@
+galaxy_info:
+  author: Sneha Joshi
+  description: Enterprise Ansible role for OpenSearch — HA/standalone, TLS, SSO, access control, metrics
+  company: "Opstree"
+  license: "Apache-2.0"
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Amazon
+      versions:
+        - "all"
+  galaxy_tags:
+    - opensearch
+    - search
+    - analytics
+    - monitoring
+    - tls
+    - sso
+    - ha
+
+dependencies: []

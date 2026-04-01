@@ -1,0 +1,209 @@
+---
+# User & Group
+- name: Ensure opensearch group exists
+  ansible.builtin.group:
+    name: opensearch
+    state: present
+    system: true
+
+- name: Ensure opensearch user exists
+  ansible.builtin.user:
+    name: opensearch
+    state: present
+    system: true
+    group: opensearch
+    create_home: false
+
+# Password Hashes
+- name: Set admin password hash fact
+  ansible.builtin.set_fact:
+    opensearch_admin_password_hash: "{{ opensearch_admin_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
+  no_log: true
+
+- name: Set kibanaserver password hash fact
+  ansible.builtin.set_fact:
+    opensearch_kibanaserver_password_hash: "{{ opensearch_kibanaserver_password | password_hash('bcrypt') | regex_replace('^\\$2b\\$', '$2a$') }}"
+  no_log: true
+
+# Directories
+- name: Create OpenSearch required directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: "0750"
+  loop:
+    - "{{ opensearch_config_dir }}"
+    - "{{ opensearch_data_path }}"
+    - "{{ opensearch_logs_path }}"
+
+# Configuration Files
+- name: Deploy opensearch.yml
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  notify: Restart OpenSearch
+
+- name: Deploy jvm.options
+  ansible.builtin.template:
+    src: jvm.options.j2
+    dest: "{{ opensearch_config_dir }}/jvm.options"
+    owner: opensearch
+    group: opensearch
+    mode: "0640"
+  notify: Restart OpenSearch
+
+# System Limits
+- name: Configure system limits
+  ansible.builtin.lineinfile:
+    path: /etc/security/limits.conf
+    line: "{{ item }}"
+    create: true
+  loop:
+    - "opensearch soft nofile {{ opensearch_limits.nofile }}"
+    - "opensearch hard nofile {{ opensearch_limits.nofile }}"
+    - "opensearch soft nproc {{ opensearch_limits.nproc }}"
+    - "opensearch hard nproc {{ opensearch_limits.nproc }}"
+    - "opensearch soft memlock {{ opensearch_limits.memlock }}"
+    - "opensearch hard memlock {{ opensearch_limits.memlock }}"
+
+# Systemd Override
+- name: Create systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/opensearch.service.d
+    state: directory
+
+- name: Deploy systemd override file
+  ansible.builtin.template:
+    src: opensearch_override.conf.j2
+    dest: /etc/systemd/system/opensearch.service.d/override.conf
+  notify:
+    - Reload systemd
+    - Restart OpenSearch
+
+# Environment File
+- name: Deploy environment file (Debian)
+  ansible.builtin.template:
+    src: opensearch.env.j2
+    dest: /etc/default/opensearch
+    owner: root
+    group: opensearch
+    mode: "0640"
+  when: ansible_os_family == "Debian"
+  notify: Restart OpenSearch
+  no_log: true
+
+# Fix Permissions
+- name: Fix directory permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: opensearch
+    group: opensearch
+    recurse: true
+  loop:
+    - "{{ opensearch_data_path }}"
+    - "{{ opensearch_logs_path }}"
+    - "{{ opensearch_config_dir }}"
+
+# Deploy Security Files
+- name: Deploy internal_users.yml
+  ansible.builtin.template:
+    src: internal_users.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch-security/internal_users.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: not opensearch_use_tls | bool
+
+- name: Deploy roles_mapping.yml
+  ansible.builtin.template:
+    src: roles_mapping.yml.j2
+    dest: "{{ opensearch_config_dir }}/opensearch-security/roles_mapping.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+  when: not opensearch_use_tls | bool
+
+# Enable Service
+- name: Enable OpenSearch service
+  ansible.builtin.systemd:
+    name: opensearch
+    enabled: true
+    daemon_reload: true
+
+# S3 Plugin
+- name: Install repository-s3 plugin
+  command: >
+    /usr/share/opensearch/bin/opensearch-plugin install --batch repository-s3
+  args:
+    creates: /usr/share/opensearch/plugins/repository-s3
+  notify: Restart OpenSearch
+
+# Remove old keystore
+- name: Remove old keystore
+  file:
+    path: /etc/opensearch/opensearch.keystore
+    state: absent
+  when: opensearch_force_clean_data | bool
+
+# Create keystore
+
+- name: Create keystore if not exists
+  shell: |
+    sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
+  args:
+    creates: /etc/opensearch/opensearch.keystore
+
+- name: Check if invalid S3 SSL setting exists in keystore
+  ansible.builtin.shell: /usr/share/opensearch/bin/opensearch-keystore list
+  register: keystore_list
+  changed_when: false
+
+- name: Remove invalid s3 ssl keystore entry only if present
+  ansible.builtin.command: /usr/share/opensearch/bin/opensearch-keystore remove s3.client.default.disable_ssl_certificate_validation
+  become: true
+  when: "'s3.client.default.disable_ssl_certificate_validation' in keystore_list.stdout"
+
+- name: Add MinIO access key
+  ansible.builtin.shell: |
+    echo -n "{{ minio_access_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
+  become: true
+  no_log: true
+
+- name: Add MinIO secret key
+  ansible.builtin.shell: |
+    echo -n "{{ minio_secret_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
+  become: true
+  no_log: true
+
+# ===========================
+# Fix permissions
+# ===========================
+- name: Fix keystore permissions
+  file:
+    path: /etc/opensearch/opensearch.keystore
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+
+- name: Flush handlers
+  meta: flush_handlers
+
+# ===========================
+# Wait for cluster
+# ===========================
+- name: Wait for cluster
+  uri:
+    url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+  register: result
+  until: result.status == 200
+  retries: 30
+  delay: 10
