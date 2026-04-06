@@ -250,33 +250,6 @@
     #status_code: [200, 201, 202]
   #register: restore_result
 
-- name: Enable Snapshot API access for admin role
-  uri:
-    url: "{{ _opensearch_url }}/_plugins/_security/api/nodesdn"
-    method: GET # We are checking if the nodes are authorized
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-  register: nodes_dn_check
-  ignore_errors: true
-
-- name: Update security cluster settings to allow REST API snapshot actions
-  uri:
-    url: "{{ _opensearch_url }}/_cluster/settings"
-    method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      persistent:
-        plugins.security.restapi.roles_enabled: ["all_access", "snapshot_management_full_access"]
-    status_code: [200, 201]
-
-# Note: The plain text was removed from here to fix the syntax error.
-
 - name: Restore snapshot
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
@@ -285,7 +258,7 @@
     password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
-    # CRITICAL: Added global tenant header to fix the 403
+    # This header is the fix for the 403 error we found in your manual curl
     headers:
       securitytenant: "global"
     body_format: json
@@ -298,12 +271,13 @@
   register: restore_result
   retries: 5
   delay: 10
-  until: restore_result.status in [200, 201, 202] 
-
+  until: restore_result.status in [200, 201, 202]
 
 - name: Show restore accepted
   ansible.builtin.debug:
     msg: "Restore accepted: {{ restore_result.json | to_nice_json }}"
+
+
 
 # ===========================
 # Wait for restore to complete
