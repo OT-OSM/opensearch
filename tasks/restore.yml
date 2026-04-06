@@ -112,7 +112,9 @@
         - "{{ opensearch_admin_username }}"
       backend_roles:
         - "admin"
-    status_code: [200, 201] just add this after map admin users
+    status_code: [200, 201]
+
+
 # ===========================
 # CRITICAL: Flush Security Plugin Cache
 # The in-memory permission cache must be flushed after any role/mapping change.
