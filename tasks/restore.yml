@@ -98,6 +98,21 @@
   retries: 3
   delay: 5
 
+- name: Ensure admin is mapped to the internal snapshot management role
+  uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/snapshot_management_full_access"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
+    status_code: [200, 201] just add this after map admin users
 # ===========================
 # CRITICAL: Flush Security Plugin Cache
 # The in-memory permission cache must be flushed after any role/mapping change.
