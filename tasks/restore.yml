@@ -252,7 +252,7 @@
 
 - name: Restore snapshot
   uri:
-    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
     method: POST
     user: "{{ opensearch_admin_username }}"
     password: "{{ opensearch_admin_password }}"
