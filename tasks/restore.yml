@@ -272,8 +272,11 @@
     body_format: json
     body:
       persistent:
-        plugins.security.restapi.roles_enabled: ["all_access", "snapshot_management_full_access"] 
-add this before the restore task
+        plugins.security.restapi.roles_enabled: ["all_access", "snapshot_management_full_access"]
+    status_code: [200, 201]
+
+# Note: The plain text was removed from here to fix the syntax error.
+
 - name: Restore snapshot
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
@@ -282,11 +285,12 @@ add this before the restore task
     password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
+    # CRITICAL: Added global tenant header to fix the 403
+    headers:
+      securitytenant: "global"
     body_format: json
     body:
-      # 1. Only restore data indices, exclude system indices (.*)
       indices: "*,-.*" 
-      # 2. DO NOT restore global state (templates, security settings)
       include_global_state: false
       include_aliases: true
       ignore_unavailable: true
@@ -294,7 +298,8 @@ add this before the restore task
   register: restore_result
   retries: 5
   delay: 10
-  until: restore_result.status in [200, 201, 202]
+  until: restore_result.status in [200, 201, 202] 
+
 
 - name: Show restore accepted
   ansible.builtin.debug:
