@@ -48,9 +48,9 @@
 # Create Snapshot (BACKUP)
 # ===========================
 
-- name: Create snapshot
+- name: Create snapshot repository
   uri:
-    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -58,11 +58,17 @@
     validate_certs: false
     body_format: json
     body:
-      indices: "*"
-      ignore_unavailable: true
-      include_global_state: false
+      type: s3
+      settings:
+        bucket: "{{ opensearch_backup_bucket }}"
+        endpoint: "{{ minio_endpoint }}"   # e.g. minio:9000
+        protocol: "{{ minio_protocol }}"   # http (since no TLS)
+        access_key: "{{ minio_access_key }}"
+        secret_key: "{{ minio_secret_key }}"
+        region: "us-east-1"
+        path_style_access: true
+        disable_chunked_encoding: true
     status_code: [200, 201]
-    timeout: 300
 
 # ===========================
 # Show Snapshot Summary
