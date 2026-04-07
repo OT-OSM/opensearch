@@ -36,9 +36,22 @@
         bucket: "{{ opensearch_backup_bucket }}"
         endpoint: "{{ minio_endpoint }}"
         protocol: "{{ minio_protocol }}"
+        access_key: "{{ minio_access_key }}"
+        secret_key: "{{ minio_secret_key }}"
         region: "us-east-1"
         path_style_access: true
-    status_code: [200, 201]
+        disable_chunked_encoding: true
+
+- name: Verify snapshot repository
+  uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: repo_check
 
 - name: Wait before snapshot (cluster stable)
   ansible.builtin.pause:
@@ -48,9 +61,9 @@
 # Create Snapshot (BACKUP)
 # ===========================
 
-- name: Create snapshot repository
+- name: Create snapshot
   uri:
-    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
     password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
@@ -58,17 +71,13 @@
     validate_certs: false
     body_format: json
     body:
-      type: s3
-      settings:
-        bucket: "{{ opensearch_backup_bucket }}"
-        endpoint: "{{ minio_endpoint }}"   # e.g. minio:9000
-        protocol: "{{ minio_protocol }}"   # http (since no TLS)
-        access_key: "{{ minio_access_key }}"
-        secret_key: "{{ minio_secret_key }}"
-        region: "us-east-1"
-        path_style_access: true
-        disable_chunked_encoding: true
+      indices: "*"
+      ignore_unavailable: true
+      include_global_state: false
     status_code: [200, 201]
+    timeout: 300
+
+
 
 # ===========================
 # Show Snapshot Summary
@@ -100,34 +109,4 @@
       Bucket     : {{ opensearch_backup_bucket }}
       ===========================================================
 
-- name: Export index data as JSON
-  uri:
-    url: "{{ _opensearch_url }}/{{ item }}/_search?size=1000"
-    method: GET
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    return_content: true
-  loop:
-    - index1
-    - index2
-  register: export_data
 
-- name: Save JSON to file
-  copy:
-    content: "{{ item.json | to_nice_json }}"
-    dest: "/tmp/{{ item.item }}.json"
-  loop: "{{ export_data.results }}"
-
-- name: Upload JSON files to MinIO
-  amazon.aws.s3_object:
-    bucket: "{{ opensearch_backup_bucket }}"
-    object: "json-backup/{{ item.item }}.json"
-    src: "/tmp/{{ item.item }}.json"
-    mode: put
-    endpoint_url: "{{ minio_endpoint }}"
-    aws_access_key: "{{ minio_access_key }}"
-    aws_secret_key: "{{ minio_secret_key }}"
-    validate_certs: false
-  loop: "{{ export_data.results }}"
