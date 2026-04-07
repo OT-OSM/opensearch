@@ -78,7 +78,6 @@
             - "indices:data/write/*"
             - "indices:data/read/*"
             - "indices:monitor/*"
-          allow_restricted_indices: true
     status_code: [200, 201]
   retries: 3
   delay: 5
@@ -245,7 +244,39 @@
     msg: "Restoring from snapshot: {{ opensearch_restore_snapshot_name }}"
 
 # ===========================
-# Close indices before restore (best effort)
+# Detect restorable (user data) indices in the snapshot
+# System/plugin indices (.kibana, .opensearch-*, etc.) cannot be restored
+# via the REST API without securityadmin access — they are recreated by
+# OpenSearch plugins automatically on startup.
+# ===========================
+
+- name: Get target snapshot metadata
+  ansible.builtin.set_fact:
+    _target_snapshot: >-
+      {{
+        snapshot_list.json.snapshots
+          | selectattr('snapshot', 'equalto', opensearch_restore_snapshot_name)
+          | list | first
+      }}
+
+- name: Identify user data indices in snapshot (exclude dot-prefixed system indices)
+  ansible.builtin.set_fact:
+    _user_data_indices: >-
+      {{
+        _target_snapshot.indices
+          | reject('match', '^\\.')
+          | list
+      }}
+
+- name: Show restorable indices
+  ansible.builtin.debug:
+    msg: |
+      Snapshot     : {{ opensearch_restore_snapshot_name }}
+      All indices  : {{ _target_snapshot.indices | join(', ') }}
+      User indices : {{ _user_data_indices | join(', ') if _user_data_indices else 'none (all are system indices)' }}
+
+# ===========================
+# Close existing user indices before restore (best effort)
 # ===========================
 
 - name: Close all open user indices before restore
@@ -263,16 +294,27 @@
     status_code: [200, 201]
   register: close_result
   ignore_errors: true
+  when: _user_data_indices | length > 0
 
 - name: Pause to ensure cluster settles before restore
   ansible.builtin.pause:
     seconds: 10
+  when: _user_data_indices | length > 0
 
 # ===========================
-# Restore Snapshot
+# Restore Snapshot (user data indices only)
 # ===========================
 
-- name: Restore snapshot (synchronous — waits for completion)
+- name: Skip restore — snapshot contains only system indices
+  ansible.builtin.debug:
+    msg: >
+      Snapshot '{{ opensearch_restore_snapshot_name }}' contains only system/plugin indices
+      (.kibana, .opensearch-*, etc.). These are recreated automatically by OpenSearch
+      plugins on startup and do not need snapshot restoration.
+      Firedrill restore task: COMPLETE (no user data indices to restore).
+  when: _user_data_indices | length == 0
+
+- name: Restore snapshot (user data indices only, synchronous)
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
     method: POST
@@ -282,17 +324,19 @@
     validate_certs: false
     body_format: json
     body:
-      indices: "{{ opensearch_restore_indices | default('*,-.opendistro_security') }}"
+      indices: "{{ _user_data_indices | join(',') }}"
       include_global_state: false
       include_aliases: true
       ignore_unavailable: true
     status_code: [200, 201, 202]
     timeout: 600
   register: restore_result
+  when: _user_data_indices | length > 0
 
 - name: Show restore result
   ansible.builtin.debug:
     msg: "Restore completed: {{ restore_result.json | to_nice_json }}"
+  when: _user_data_indices | length > 0
 
 # ===========================
 # Wait for restore to complete
