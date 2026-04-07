@@ -41,6 +41,7 @@
         region: "us-east-1"
         path_style_access: true
         disable_chunked_encoding: true
+    status_code: [200, 201]
 
 - name: Verify snapshot repository
   uri:
@@ -52,6 +53,10 @@
     validate_certs: false
     return_content: true
   register: repo_check
+  failed_when: >
+    repo_check.status != 200 or
+    (repo_check.json[opensearch_backup_repo] is not defined) or
+    (repo_check.json[opensearch_backup_repo].type != 's3')
 
 - name: Wait before snapshot (cluster stable)
   ansible.builtin.pause:
@@ -76,8 +81,6 @@
       include_global_state: false
     status_code: [200, 201]
     timeout: 300
-
-
 
 # ===========================
 # Show Snapshot Summary
@@ -108,5 +111,3 @@
       Repository : {{ opensearch_backup_repo }}
       Bucket     : {{ opensearch_backup_bucket }}
       ===========================================================
-
-

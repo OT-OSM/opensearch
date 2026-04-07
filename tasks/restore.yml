@@ -65,11 +65,10 @@
         - "cluster:admin/repository/verify"
         - "cluster:monitor/*"
       index_permissions:
-      - index_patterns:
-            - "*"
-        allowed_actions:
-            - "*"
+        - index_patterns:
+            - "*"
           allowed_actions:
+            - "*"
             - "indices:admin/close"
             - "indices:admin/open"
             - "indices:admin/delete"
@@ -93,10 +92,10 @@
     validate_certs: false
     body_format: json
     body:
-      users:
-        - "{{ opensearch_admin_username }}"
-      backend_roles:
-        - "admin"
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
     status_code: [200, 201]
   retries: 3
   delay: 5
@@ -105,8 +104,8 @@
   uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/snapshot_management_full_access"
     method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
     force_basic_auth: true
     validate_certs: false
     body_format: json
@@ -116,7 +115,6 @@
       backend_roles:
         - "admin"
     status_code: [200, 201]
-
 
 # ===========================
 # CRITICAL: Flush Security Plugin Cache
@@ -145,9 +143,9 @@
 
 - name: Verify network connectivity to MinIO
   ansible.builtin.wait_for:
-    host: "{{ minio_endpoint | regex_replace('http://|https://|:.*', '') }}"
-    port: 9000  # Double check if your MinIO is on 9000 or 9001
-    timeout: 5
+    host: "{{ minio_endpoint | regex_replace('^https?://', '') | regex_replace(':.*$', '') }}"
+    port: "{{ minio_endpoint | regex_replace('^.*:', '') | int }}"
+    timeout: 10
     msg: "Cannot reach MinIO at {{ minio_endpoint }}. Check firewall or MinIO service status."
 
 # ===========================
@@ -169,8 +167,11 @@
         bucket: "{{ opensearch_backup_bucket }}"
         endpoint: "{{ minio_endpoint }}"
         protocol: "{{ minio_protocol }}"
+        access_key: "{{ minio_access_key }}"
+        secret_key: "{{ minio_secret_key }}"
         region: "us-east-1"
         path_style_access: true
+        disable_chunked_encoding: true
     status_code: [200, 201]
 
 # ===========================
@@ -201,7 +202,12 @@
           | list
           | last).snapshot
       }}
-  when: opensearch_restore_snapshot_name == ""
+  when: opensearch_restore_snapshot_name | default('') == ''
+
+- name: Fail if no successful snapshot could be identified
+  ansible.builtin.fail:
+    msg: "No successful (SUCCESS state) snapshot found in '{{ opensearch_backup_repo }}'. Check your backup runs."
+  when: opensearch_restore_snapshot_name | default('') == ''
 
 - name: Show snapshot that will be restored
   ansible.builtin.debug:
@@ -213,7 +219,6 @@
 
 - name: Close all open user indices before restore
   uri:
-    #url: "{{ _opensearch_url }}/*/_close"
     url: "{{ _opensearch_url }}/*,-.*/_close"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -236,24 +241,7 @@
 # Restore Snapshot
 # ===========================
 
-#- name: Restore snapshot
- # uri:
-  #  url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=false"
-   # method: POST
-    #user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-    #password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
-    #force_basic_auth: true
-    #validate_certs: false
-    #body_format: json
-    #body:
-     # indices: "{{ opensearch_restore_indices | default('*') }}"
-      #ignore_unavailable: true
-      #include_global_state: false
-      #include_aliases: true
-    #status_code: [200, 201, 202]
-  #register: restore_result
-
-- name: Restore snapshot
+- name: Restore snapshot (synchronous — waits for completion)
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
     method: POST
@@ -261,26 +249,21 @@
     password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
-    # This header is the fix for the 403 error we found in your manual curl
     headers:
       securitytenant: "global"
     body_format: json
     body:
-      indices: "*,-.*" 
+      indices: "{{ opensearch_restore_indices | default('*,-.*') }}"
       include_global_state: false
       include_aliases: true
       ignore_unavailable: true
     status_code: [200, 201, 202]
+    timeout: 600
   register: restore_result
-  retries: 5
-  delay: 10
-  until: restore_result.status in [200, 201, 202]
 
-- name: Show restore accepted
+- name: Show restore result
   ansible.builtin.debug:
-    msg: "Restore accepted: {{ restore_result.json | to_nice_json }}"
-
-
+    msg: "Restore completed: {{ restore_result.json | to_nice_json }}"
 
 # ===========================
 # Wait for restore to complete
