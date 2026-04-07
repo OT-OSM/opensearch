@@ -81,6 +81,10 @@
     - opensearch_enable_cluster_mode | bool
     - opensearch_discovery_seed_hosts | length > 0
 
+- name: Configure S3/MinIO credentials in OpenSearch keystore (all nodes)
+  ansible.builtin.include_tasks: s3-keystore.yml
+  when: opensearch_backup_enabled | bool or opensearch_restore_enabled | bool
+
 - include_tasks: backup.yml
   when: opensearch_backup_enabled | bool
   run_once: true

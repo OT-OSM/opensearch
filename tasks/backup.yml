@@ -17,6 +17,22 @@
   retries: 10
   delay: 10
 
+- name: Reload secure settings so keystore S3 credentials are active
+  uri:
+    url: "{{ _opensearch_url }}/_nodes/reload_secure_settings"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+  register: reload_result
+  failed_when: false
+
+- name: Show reload_secure_settings result
+  ansible.builtin.debug:
+    msg: "Secure settings reload: {{ reload_result.json | default(reload_result.msg) }}"
+
 # ===========================
 # Create Snapshot Repository
 # ===========================
@@ -36,12 +52,9 @@
         bucket: "{{ opensearch_backup_bucket }}"
         endpoint: "{{ minio_endpoint }}"
         protocol: "{{ minio_protocol }}"
-        access_key: "{{ minio_access_key }}"
-        secret_key: "{{ minio_secret_key }}"
         region: "us-east-1"
         path_style_access: true
         disable_chunked_encoding: true
-      allow_insecure_settings: true
     status_code: [200, 201]
 
 - name: Verify snapshot repository
