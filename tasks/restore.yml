@@ -64,8 +64,10 @@
         - "cluster:admin/repository/verify"
         - "cluster:monitor/*"
       index_permissions:
-        - index_patterns:
-            - "*"
+      - index_patterns:
+            - "*"
+        allowed_actions:
+            - "*"
           allowed_actions:
             - "indices:admin/close"
             - "indices:admin/open"
