@@ -93,3 +93,35 @@
       Repository : {{ opensearch_backup_repo }}
       Bucket     : {{ opensearch_backup_bucket }}
       ===========================================================
+
+- name: Export index data as JSON
+  uri:
+    url: "{{ _opensearch_url }}/{{ item }}/_search?size=1000"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  loop:
+    - index1
+    - index2
+  register: export_data
+
+- name: Save JSON to file
+  copy:
+    content: "{{ item.json | to_nice_json }}"
+    dest: "/tmp/{{ item.item }}.json"
+  loop: "{{ export_data.results }}"
+
+- name: Upload JSON files to MinIO
+  amazon.aws.s3_object:
+    bucket: "{{ opensearch_backup_bucket }}"
+    object: "json-backup/{{ item.item }}.json"
+    src: "/tmp/{{ item.item }}.json"
+    mode: put
+    endpoint_url: "{{ minio_endpoint }}"
+    aws_access_key: "{{ minio_access_key }}"
+    aws_secret_key: "{{ minio_secret_key }}"
+    validate_certs: false
+  loop: "{{ export_data.results }}"
