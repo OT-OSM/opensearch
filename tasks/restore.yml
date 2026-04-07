@@ -314,6 +314,11 @@
       Firedrill restore task: COMPLETE (no user data indices to restore).
   when: _user_data_indices | length == 0
 
+- name: Record restoration start time
+  ansible.builtin.set_fact:
+    _restore_start_time: "{{ ansible_date_time.epoch }}"
+  when: _user_data_indices | length > 0
+
 - name: Restore snapshot (user data indices only, synchronous)
   uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
@@ -370,4 +375,21 @@
 - name: Show cluster health after restore
   ansible.builtin.debug:
     msg: "Cluster status after restore: {{ post_restore_health.json.status }}"
+  when: _user_data_indices | length > 0
+
+- name: Record restoration end time
+  ansible.builtin.set_fact:
+    _restore_end_time: "{{ ansible_date_time.epoch }}"
+  when: _user_data_indices | length > 0
+
+- name: Show Restoration Summary
+  ansible.builtin.debug:
+    msg: |
+      ==================== RESTORATION SUMMARY ====================
+      Snapshot     : {{ opensearch_restore_snapshot_name }}
+      Repository   : {{ opensearch_backup_repo }}
+      Indices      : {{ _user_data_indices | join(', ') }}
+      Duration     : {{ (_restore_end_time | int) - (_restore_start_time | int) }} seconds
+      Status       : SUCCESS (Cluster Healthy)
+      =============================================================
   when: _user_data_indices | length > 0
