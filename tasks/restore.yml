@@ -53,6 +53,7 @@
     body_format: json
     body:
       cluster_permissions:
+        - "cluster:admin/*"
         - "cluster:admin/snapshot/restore"
         - "cluster:admin/snapshot/get"
         - "cluster:admin/snapshot/create"
