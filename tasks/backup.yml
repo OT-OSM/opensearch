@@ -41,6 +41,7 @@
         region: "us-east-1"
         path_style_access: true
         disable_chunked_encoding: true
+      allow_insecure_settings: true
     status_code: [200, 201]
 
 - name: Verify snapshot repository
