@@ -264,7 +264,7 @@
     _user_data_indices: >-
       {{
         _target_snapshot.indices
-          | reject('match', '^\\.')
+          | reject('match', '^[.]')
           | list
       }}
 
@@ -354,6 +354,7 @@
   until: recovery_status.json | length == 0
   retries: 30
   delay: 15
+  when: _user_data_indices | length > 0
 
 - name: Verify cluster health after restore
   uri:
@@ -364,7 +365,9 @@
     force_basic_auth: true
     validate_certs: false
   register: post_restore_health
+  when: _user_data_indices | length > 0
 
 - name: Show cluster health after restore
   ansible.builtin.debug:
     msg: "Cluster status after restore: {{ post_restore_health.json.status }}"
+  when: _user_data_indices | length > 0
