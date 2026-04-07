@@ -78,6 +78,7 @@
             - "indices:data/write/*"
             - "indices:data/read/*"
             - "indices:monitor/*"
+          allow_restricted_indices: true
     status_code: [200, 201]
   retries: 3
   delay: 5
@@ -115,6 +116,22 @@
       backend_roles:
         - "admin"
     status_code: [200, 201]
+
+- name: Patch all_access role to allow restricted (system) indices
+  uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/roles/all_access"
+    method: PATCH
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      - op: replace
+        path: "/index_permissions/0/allow_restricted_indices"
+        value: true
+    status_code: [200, 201]
+  failed_when: false
 
 # ===========================
 # CRITICAL: Flush Security Plugin Cache
