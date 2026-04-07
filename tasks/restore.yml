@@ -263,11 +263,9 @@
     password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
-    headers:
-      securitytenant: "global"
     body_format: json
     body:
-      indices: "{{ opensearch_restore_indices | default('*,-.*') }}"
+      indices: "{{ opensearch_restore_indices | default('*,-.opendistro_security') }}"
       include_global_state: false
       include_aliases: true
       ignore_unavailable: true
