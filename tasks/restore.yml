@@ -92,10 +92,10 @@
     validate_certs: false
     body_format: json
     body:
-      users:
-        - "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
-      backend_roles:
-        - "admin"
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
     status_code: [200, 201]
   retries: 3
   delay: 5
