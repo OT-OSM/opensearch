@@ -1,5 +1,0 @@
----
-# Internal/derived variables
-# Note: Role-level vars have higher precedence than defaults.
-# Only place variables here that should NOT be overridable by users.
-# Seed hosts and master nodes are now in defaults/main.yml so users can override them.
