@@ -137,7 +137,7 @@
 
 # S3 Plugin
 - name: Install repository-s3 plugin
-  command: >
+  ansible.builtin.command: >
     /usr/share/opensearch/bin/opensearch-plugin install --batch repository-s3
   args:
     creates: /usr/share/opensearch/plugins/repository-s3
@@ -145,15 +145,14 @@
 
 # Remove old keystore
 - name: Remove old keystore
-  file:
+  ansible.builtin.file:
     path: /etc/opensearch/opensearch.keystore
     state: absent
   when: opensearch_force_clean_data | bool
 
 # Create keystore
-
 - name: Create keystore if not exists
-  shell: |
+  ansible.builtin.shell: |
     sudo -u opensearch /usr/share/opensearch/bin/opensearch-keystore create
   args:
     creates: /etc/opensearch/opensearch.keystore
@@ -168,36 +167,24 @@
   become: true
   when: "'s3.client.default.disable_ssl_certificate_validation' in keystore_list.stdout"
 
-- name: Add MinIO access key
-  ansible.builtin.shell: |
-    echo -n "{{ minio_access_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.access_key
-  become: true
-  no_log: true
-
-- name: Add MinIO secret key
-  ansible.builtin.shell: |
-    echo -n "{{ minio_secret_key }}" | /usr/share/opensearch/bin/opensearch-keystore add -xf s3.client.default.secret_key
-  become: true
-  no_log: true
-
 # ===========================
 # Fix permissions
 # ===========================
 - name: Fix keystore permissions
-  file:
+  ansible.builtin.file:
     path: /etc/opensearch/opensearch.keystore
     owner: opensearch
     group: opensearch
     mode: "0600"
 
 - name: Flush handlers
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers
 
 # ===========================
 # Wait for cluster
 # ===========================
 - name: Wait for cluster
-  uri:
+  ansible.builtin.uri:
     url: "http://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
     user: "{{ opensearch_admin_username }}"

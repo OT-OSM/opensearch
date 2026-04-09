@@ -144,7 +144,7 @@ opensearch_backup_repo: "minio_repo"
 opensearch_backup_bucket: "opensearch-backup"
 opensearch_backup_name: "snapshot_{{ ansible_date_time.epoch }}"
 
-minio_endpoint: "minio.ldc.opstree.dev:9000"
+minio_endpoint: "your-minio-host:9000"
 minio_protocol: "https"
 
 # Credentials — sourced from dedicated Semaphore env vars

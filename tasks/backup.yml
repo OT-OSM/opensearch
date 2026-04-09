@@ -1,10 +1,6 @@
 ---
-- name: Define connection variables
-  ansible.builtin.set_fact:
-    _opensearch_url: "{{ 'https' if opensearch_use_tls | bool else 'http' }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}"
-
 - name: Wait for cluster green
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_cluster/health"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -18,7 +14,7 @@
   delay: 10
 
 - name: Reload secure settings so keystore S3 credentials are active
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_nodes/reload_secure_settings"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -38,7 +34,7 @@
 # ===========================
 
 - name: Create snapshot repository
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -58,7 +54,7 @@
     status_code: [200, 201]
 
 - name: Verify snapshot repository
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -81,7 +77,7 @@
 # ===========================
 
 - name: Create snapshot
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -101,7 +97,7 @@
 # ===========================
 
 - name: Fetch snapshot status
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"

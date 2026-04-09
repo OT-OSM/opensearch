@@ -3,12 +3,8 @@
 # Fire Drill — Restore from MinIO Snapshot
 # ===========================
 
-- name: Define connection variables
-  ansible.builtin.set_fact:
-    _opensearch_url: "{{ 'https' if opensearch_use_tls | bool else 'http' }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}"
-
 - name: Wait for cluster to be healthy before restore
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_cluster/health"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -22,7 +18,7 @@
   delay: 10
 
 - name: Verify restore permissions before proceeding
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/authinfo"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -43,7 +39,7 @@
 # ===========================
 
 - name: Create / update firedrill_restore_role with explicit snapshot permissions
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/roles/firedrill_restore_role"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -83,7 +79,7 @@
   delay: 5
 
 - name: Map admin user to firedrill_restore_role
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/firedrill_restore_role"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -101,7 +97,7 @@
   delay: 5
 
 - name: Ensure admin is mapped to the internal snapshot management role
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/snapshot_management_full_access"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -117,7 +113,7 @@
     status_code: [200, 201]
 
 - name: Patch all_access role to allow restricted (system) indices
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/roles/all_access"
     method: PATCH
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -138,7 +134,7 @@
 # ===========================
 
 - name: Flush OpenSearch security plugin cache
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_plugins/_security/api/cache"
     method: DELETE
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -158,7 +154,7 @@
     seconds: 30
 
 - name: Reload secure settings so keystore S3 credentials are active
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_nodes/reload_secure_settings"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -185,7 +181,7 @@
 # ===========================
 
 - name: Register MinIO snapshot repository
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
     method: PUT
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -209,7 +205,7 @@
 # ===========================
 
 - name: List all snapshots in repository
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/_all"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -280,7 +276,7 @@
 # ===========================
 
 - name: Close all open user indices before restore
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/*,-.*/_close"
     method: POST
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -320,7 +316,7 @@
   when: _user_data_indices | length > 0
 
 - name: Restore snapshot (user data indices only, synchronous)
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
     method: POST
     user: "{{ opensearch_admin_username }}"
@@ -348,7 +344,7 @@
 # ===========================
 
 - name: Wait for restore to complete (poll recovery status)
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_cat/recovery?active_only=true&format=json"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
@@ -362,7 +358,7 @@
   when: _user_data_indices | length > 0
 
 - name: Verify cluster health after restore
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_url }}/_cluster/health?wait_for_status=yellow&timeout=60s"
     method: GET
     user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"

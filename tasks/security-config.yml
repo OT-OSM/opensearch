@@ -192,7 +192,7 @@
       | Cluster status: {{ health_with_auth.json.status }}
 
 - name: Apply roles mapping for admin user (Securely with retry)
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
     method: PUT
     user: "{{ opensearch_admin_username }}"
@@ -217,7 +217,7 @@
   run_once: true
 
 - name: Verify roles mapping applied
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
     method: GET
     user: "{{ opensearch_admin_username }}"
@@ -237,7 +237,7 @@
     )
 
 - name: Verify restore permissions (Authinfo)
-  uri:
+  ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/authinfo"
     method: GET
     user: "{{ opensearch_admin_username }}"
