@@ -3,9 +3,7 @@
 server.port: {{ opensearch_dashboards_port }}
 server.host: "{{ opensearch_dashboards_host }}"
 
-{% if opensearch_enable_sso | bool and opensearch_auth_type == 'openid' %}
-server.publicBaseUrl: "{{ opensearch_openid_base_redirect_url | regex_replace('/$', '') }}"
-{% endif %}
+
 
 # OpenSearch Connection
 
