@@ -53,6 +53,24 @@
   loop_control:
     label: "{{ item.item.id }}"
 
+- name: Create ISM Index Template for Rollover
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_index_template/ism_rollover_template"
+    method: PUT
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      index_patterns: "{{ opensearch_ism_index_patterns }}"
+      template:
+        settings:
+          plugins.index_state_management.rollover_alias: "{{ opensearch_ism_rollover_alias }}"
+      priority: 200
+    status_code: 200
+  run_once: true
+
 - name: Check if bootstrap index exists
   ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/{{ opensearch_ism_bootstrap_index }}"
@@ -76,6 +94,8 @@
     body_format: json
     body:
       aliases: "{{ { opensearch_ism_rollover_alias: { 'is_write_index': true } } }}"
+      settings:
+        plugins.index_state_management.rollover_alias: "{{ opensearch_ism_rollover_alias }}"
     status_code: 200
   when: _bootstrap_index_check.status == 404
   run_once: true
