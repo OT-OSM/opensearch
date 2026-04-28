@@ -75,9 +75,7 @@
     validate_certs: false
     body_format: json
     body:
-      aliases:
-        "{{ opensearch_ism_rollover_alias }}":
-          is_write_index: true
+      aliases: "{{ { opensearch_ism_rollover_alias: { 'is_write_index': true } } }}"
     status_code: 200
   when: _bootstrap_index_check.status == 404
   run_once: true
