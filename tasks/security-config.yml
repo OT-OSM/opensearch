@@ -245,53 +245,22 @@
        opensearch_admin_username in verify_roles.json.users)
     )
 
-- name: Apply security config via REST API (HTTP Mode)
-  ansible.builtin.uri:
-    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/securityconfig/config"
-    method: PUT
-    user: "{{ opensearch_admin_username }}"
-    password: "{{ opensearch_admin_password }}"
-    force_basic_auth: true
-    validate_certs: false
-    body_format: json
-    body:
-      dynamic:
-        http:
-          anonymous_auth_enabled: false
-          xff:
-            enabled: false
-        authc:
-          basic_internal_auth_domain:
-            description: "Authenticate via HTTP Basic against internal users database"
-            http_enabled: true
-            transport_enabled: true
-            order: 0
-            http_authenticator:
-              type: basic
-              challenge: false
-            authentication_backend:
-              type: intern
-          openid_auth_domain:
-            description: "Authenticate via OpenID Connect"
-            http_enabled: "{{ opensearch_enable_sso | bool and opensearch_auth_type == 'openid' }}"
-            transport_enabled: true
-            order: 1
-            http_authenticator:
-              type: openid
-              challenge: false
-              config:
-                subject_key: preferred_username
-                roles_key: roles
-                openid_connect_url: "{{ opensearch_openid_connect_url | default('https://dummy') }}"
-            authentication_backend:
-              type: noop
-    status_code: [200, 201]
+- name: Apply security config via securityadmin.sh (HTTP Mode with demo certs)
+  ansible.builtin.command: >
+    /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+    -cd "{{ opensearch_security_config_dir }}"
+    -icl
+    -nhnv
+    -cacert "/etc/opensearch/root-ca.pem"
+    -cert "/etc/opensearch/kirk.pem"
+    -key "/etc/opensearch/kirk-key.pem"
+    -h "{{ opensearch_api_host }}"
+  register: security_init_http
   when: not opensearch_use_tls | bool
-  register: config_update
-  retries: 5
+  changed_when: "'Done with success' in security_init_http.stdout"
+  retries: 3
   delay: 10
-  until: config_update.status in [200, 201]
-  run_once: true
+  until: security_init_http.rc == 0
 
 - name: Verify restore permissions (Authinfo)
   ansible.builtin.uri:
