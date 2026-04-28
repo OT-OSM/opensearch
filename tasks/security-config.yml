@@ -109,6 +109,14 @@
 
 # Deploy Security Config templates — runs in BOTH TLS and HTTP modes
 
+- name: Deploy config.yml to security config dir
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/config.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
+
 - name: Deploy internal_users.yml to security config dir
   ansible.builtin.template:
     src: internal_users.yml.j2
