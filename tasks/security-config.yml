@@ -59,9 +59,10 @@
   ansible.builtin.fail:
     msg: "Missing TLS file: {{ item.item }}"
   when:
-    - (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+    - opensearch_use_tls | bool
+    - item.stat is defined
     - not item.stat.exists
-  loop: "{{ tls_files.results }}"
+  loop: "{{ tls_files.results | default([]) }}"
 
 # Fix TLS permissions
 
