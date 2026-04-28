@@ -62,9 +62,7 @@
 
 - name: Verify cluster health
   ansible.builtin.include_tasks: verify-cluster.yml
-  when:
-    - opensearch_install_node | bool
-    - opensearch_enable_cluster_mode | bool
+  when: opensearch_install_node | bool
 
 - name: Install Prometheus exporter
   ansible.builtin.include_tasks: install-exporter.yml
