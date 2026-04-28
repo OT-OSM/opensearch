@@ -154,3 +154,42 @@ minio_secret_key: "{{ lookup('env', 'OPENSEARCH_MINIO_SECRET_KEY') }}"
 # Extra S3 client options
 opensearch_s3_path_style_access: true
 opensearch_force_clean_data: false
+
+# ===========================
+# Index State Management (ISM)
+# ===========================
+
+opensearch_ism_enabled: false
+
+# Index Pattern & Alias setup
+opensearch_ism_index_patterns: ["logs-*"]
+opensearch_ism_rollover_alias: "logs"
+opensearch_ism_bootstrap_index: "logs-000001"
+
+# Lifecycle Triggers (Safety Buffer & Rollover limits)
+opensearch_ism_rollover_min_size: "50gb"
+opensearch_ism_rollover_min_age: "7d"
+opensearch_ism_delete_min_age: "30d"
+
+# Define your lifecycle policies dynamically
+opensearch_ism_policies:
+  - id: "default_retention_policy"
+    description: "Default policy to rollover at {{ opensearch_ism_rollover_min_size }}/{{ opensearch_ism_rollover_min_age }} and delete after {{ opensearch_ism_delete_min_age }}"
+    default_state: "hot"
+    states:
+      - name: "hot"
+        actions:
+          - rollover:
+              min_size: "{{ opensearch_ism_rollover_min_size }}"
+              min_index_age: "{{ opensearch_ism_rollover_min_age }}"
+        transitions:
+          - state_name: "delete"
+            conditions:
+              min_index_age: "{{ opensearch_ism_delete_min_age }}"
+      - name: "delete"
+        actions:
+          - delete: {}
+        transitions: []
+    ism_template:
+      - index_patterns: "{{ opensearch_ism_index_patterns }}"
+        priority: 100

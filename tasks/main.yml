@@ -64,6 +64,10 @@
   ansible.builtin.include_tasks: verify-cluster.yml
   when: opensearch_install_node | bool
 
+- name: Configure ISM policies
+  ansible.builtin.include_tasks: ism-policies.yml
+  when: opensearch_ism_enabled | bool
+
 - name: Install Prometheus exporter
   ansible.builtin.include_tasks: install-exporter.yml
   when: opensearch_metrics_enabled | bool

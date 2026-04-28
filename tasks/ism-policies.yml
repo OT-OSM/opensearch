@@ -1,0 +1,95 @@
+---
+- name: Determine protocol
+  ansible.builtin.set_fact:
+    _opensearch_protocol: "{{ 'https' if opensearch_use_tls | bool else 'http' }}"
+
+- name: Wait for cluster health before applying ISM policies
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: _cluster_health
+  until: >-
+    _cluster_health.status == 200 and
+    (_cluster_health.json.status == "green" or
+    (not opensearch_enable_cluster_mode | bool and _cluster_health.json.status == "yellow"))
+  retries: 30
+  delay: 10
+
+- name: Check if ISM policies exist
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_ism/policies/{{ item.id }}"
+    method: GET
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 404]
+  register: _existing_policies
+  loop: "{{ opensearch_ism_policies }}"
+  run_once: true
+
+- name: Create or update ISM policies
+  ansible.builtin.uri:
+    url: >-
+      {{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_ism/policies/{{ item.item.id }}
+      {%- if item.status == 200 -%}
+      ?if_seq_no={{ item.json._seq_no }}&if_primary_term={{ item.json._primary_term }}
+      {%- endif -%}
+    method: PUT
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      policy: "{{ item.item | combine({'id': omit}) }}"
+    status_code: [200, 201]
+  loop: "{{ _existing_policies.results }}"
+  run_once: true
+  loop_control:
+    label: "{{ item.item.id }}"
+
+- name: Check if bootstrap index exists
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/{{ opensearch_ism_bootstrap_index }}"
+    method: GET
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 404]
+  register: _bootstrap_index_check
+  run_once: true
+
+- name: Create bootstrap index with rollover alias
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/{{ opensearch_ism_bootstrap_index }}"
+    method: PUT
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      aliases:
+        "{{ opensearch_ism_rollover_alias }}":
+          is_write_index: true
+    status_code: 200
+  when: _bootstrap_index_check.status == 404
+  run_once: true
+
+- name: Validate ISM policies were created successfully
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_ism/policies/{{ item.id }}"
+    method: GET
+    user: "{{ opensearch_api_username }}"
+    password: "{{ opensearch_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: 200
+  loop: "{{ opensearch_ism_policies }}"
+  run_once: true
