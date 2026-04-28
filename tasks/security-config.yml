@@ -33,7 +33,7 @@
         dest: "{{ opensearch_certs_dir }}/admin-key.pem",
         mode: "0600",
       }
-  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+  when: opensearch_use_tls | bool
   ignore_errors: true
 
 - name: Update certificate paths to internal directory
@@ -41,7 +41,7 @@
     opensearch_root_ca_path: "{{ opensearch_certs_dir }}/chain.pem"
     opensearch_admin_cert_path: "{{ opensearch_certs_dir }}/admin.pem"
     opensearch_admin_key_path: "{{ opensearch_certs_dir }}/admin-key.pem"
-  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+  when: opensearch_use_tls | bool
 
 # Verify TLS files exist
 
@@ -53,7 +53,7 @@
     - "{{ opensearch_admin_cert_path }}"
     - "{{ opensearch_admin_key_path }}"
   register: tls_files
-  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+  when: opensearch_use_tls | bool
 
 - name: Fail if TLS file missing
   ansible.builtin.fail:
@@ -75,7 +75,7 @@
     - { path: "{{ opensearch_root_ca_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_cert_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_key_path }}", mode: "0600" }
-  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+  when: opensearch_use_tls | bool
 
 # Fix security config permissions
 
@@ -146,7 +146,7 @@
     -key "{{ opensearch_admin_key_path }}"
     -h "{{ opensearch_api_host }}"
   register: security_init
-  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
+  when: opensearch_use_tls | bool
   changed_when: "'Done with success' in security_init.stdout"
 
 # Restart after init (TLS only)
@@ -243,6 +243,54 @@
       (verify_roles.json.users is defined and
        opensearch_admin_username in verify_roles.json.users)
     )
+
+- name: Apply security config via REST API (HTTP Mode)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/securityconfig/config"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      dynamic:
+        http:
+          anonymous_auth_enabled: false
+          xff:
+            enabled: false
+        authc:
+          basic_internal_auth_domain:
+            description: "Authenticate via HTTP Basic against internal users database"
+            http_enabled: true
+            transport_enabled: true
+            order: 0
+            http_authenticator:
+              type: basic
+              challenge: false
+            authentication_backend:
+              type: intern
+          openid_auth_domain:
+            description: "Authenticate via OpenID Connect"
+            http_enabled: "{{ opensearch_enable_sso | bool and opensearch_auth_type == 'openid' }}"
+            transport_enabled: true
+            order: 1
+            http_authenticator:
+              type: openid
+              challenge: false
+              config:
+                subject_key: preferred_username
+                roles_key: roles
+                openid_connect_url: "{{ opensearch_openid_connect_url | default('https://dummy') }}"
+            authentication_backend:
+              type: noop
+    status_code: [200, 201]
+  when: not opensearch_use_tls | bool
+  register: config_update
+  retries: 5
+  delay: 10
+  until: config_update.status in [200, 201]
+  run_once: true
 
 - name: Verify restore permissions (Authinfo)
   ansible.builtin.uri:
