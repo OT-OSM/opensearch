@@ -33,7 +33,7 @@
         dest: "{{ opensearch_certs_dir }}/admin-key.pem",
         mode: "0600",
       }
-  when: opensearch_use_tls | bool
+  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
   ignore_errors: true
 
 - name: Update certificate paths to internal directory
@@ -41,7 +41,7 @@
     opensearch_root_ca_path: "{{ opensearch_certs_dir }}/chain.pem"
     opensearch_admin_cert_path: "{{ opensearch_certs_dir }}/admin.pem"
     opensearch_admin_key_path: "{{ opensearch_certs_dir }}/admin-key.pem"
-  when: opensearch_use_tls | bool
+  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
 
 # Verify TLS files exist
 
@@ -53,13 +53,13 @@
     - "{{ opensearch_admin_cert_path }}"
     - "{{ opensearch_admin_key_path }}"
   register: tls_files
-  when: opensearch_use_tls | bool
+  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
 
 - name: Fail if TLS file missing
   ansible.builtin.fail:
     msg: "Missing TLS file: {{ item.item }}"
   when:
-    - opensearch_use_tls | bool
+    - (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
     - not item.stat.exists
   loop: "{{ tls_files.results }}"
 
@@ -75,7 +75,7 @@
     - { path: "{{ opensearch_root_ca_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_cert_path }}", mode: "0644" }
     - { path: "{{ opensearch_admin_key_path }}", mode: "0600" }
-  when: opensearch_use_tls | bool
+  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
 
 # Fix security config permissions
 
@@ -146,7 +146,7 @@
     -key "{{ opensearch_admin_key_path }}"
     -h "{{ opensearch_api_host }}"
   register: security_init
-  when: opensearch_use_tls | bool
+  when: (opensearch_use_tls | bool) or (opensearch_enable_sso | bool)
   changed_when: "'Done with success' in security_init.stdout"
 
 # Restart after init (TLS only)
