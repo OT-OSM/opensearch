@@ -38,6 +38,7 @@ opensearch_security.openid.client_id: "{{ opensearch_openid_client_id }}"
 opensearch_security.openid.client_secret: "{{ opensearch_openid_client_secret }}"
 opensearch_security.openid.scope: "{{ opensearch_openid_scope }}"
 opensearch_security.openid.base_redirect_url: "{{ opensearch_openid_base_redirect_url }}"
+opensearch_security.cookie.secure: true
 {% if opensearch_use_tls | bool %}
 opensearch_security.openid.root_ca: "{{ opensearch_dashboards_config_dir }}/certs/root-ca.pem"
 {% endif %}
