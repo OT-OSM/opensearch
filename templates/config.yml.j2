@@ -30,8 +30,8 @@ config:
           type: openid
           challenge: false
           config:
-            subject_key: preferred_username
-            roles_key: roles
+            subject_key: "{{ opensearch_openid_subject_key | default('preferred_username') }}"
+            roles_key: "{{ opensearch_openid_roles_key | default('roles') }}"
             openid_connect_url: "{{ opensearch_openid_connect_url }}"
         authentication_backend:
           type: noop
