@@ -89,6 +89,9 @@ opensearch_auth_type: "basic" # Options: basic, openid, saml
 opensearch_admin_username: "admin"
 opensearch_admin_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_admin_password_hash: ""
+# Aliases used for API health-check calls (defaults to admin credentials)
+opensearch_api_username: "{{ opensearch_admin_username }}"
+opensearch_api_password: "{{ opensearch_admin_password }}"
 opensearch_kibanaserver_username: "kibanaserver"
 opensearch_kibanaserver_password: "Strong@321" # CHANGE THIS — use Ansible Vault in production
 opensearch_kibanaserver_password_hash: ""
@@ -124,3 +127,69 @@ opensearch_dashboards_config_dir: "/etc/opensearch-dashboards"
 opensearch_dashboards_admin_username: "admin"
 opensearch_dashboards_opensearch_host: "{{ opensearch_domain_name }}:{{ opensearch_http_port }}"
 opensearch_dashboards_url: "{{ opensearch_dashboards_public_protocol }}://{{ opensearch_dashboards_public_host }}:{{ opensearch_dashboards_port }}"
+
+# ===========================
+# Backup / Snapshot (MinIO)
+# ===========================
+
+opensearch_backup_enabled: false
+opensearch_restore_enabled: false
+opensearch_restore_indices: "*" # restore all indices; override to target specific ones
+opensearch_restore_snapshot_name: "" # leave empty to auto-pick the latest SUCCESS snapshot
+
+opensearch_backup_username: "{{ opensearch_admin_username }}"
+opensearch_backup_password: "{{ opensearch_admin_password }}"
+
+opensearch_backup_repo: "minio_repo"
+opensearch_backup_bucket: "opensearch-backup"
+opensearch_backup_name: "snapshot_{{ ansible_date_time.epoch }}"
+
+opensearch_minio_endpoint: "your-minio-host:9000"
+opensearch_minio_protocol: "https"
+
+# Credentials — sourced from dedicated Semaphore env vars
+opensearch_minio_access_key: "{{ lookup('env', 'OPENSEARCH_MINIO_ACCESS_KEY') }}"
+opensearch_minio_secret_key: "{{ lookup('env', 'OPENSEARCH_MINIO_SECRET_KEY') }}"
+
+# Extra S3 client options
+opensearch_s3_path_style_access: true
+opensearch_force_clean_data: false
+
+# ===========================
+# Index State Management (ISM)
+# ===========================
+
+opensearch_ism_enabled: false
+
+# Index Pattern & Alias setup
+opensearch_ism_index_patterns: ["logs-*"]
+opensearch_ism_rollover_alias: "logs"
+opensearch_ism_bootstrap_index: "logs-000001"
+
+# Lifecycle Triggers (Safety Buffer & Rollover limits)
+opensearch_ism_rollover_min_size: "50gb"
+opensearch_ism_rollover_min_age: "7d"
+opensearch_ism_delete_min_age: "30d"
+
+# Define your lifecycle policies dynamically
+opensearch_ism_policies:
+  - id: "default_retention_policy"
+    description: "Default policy to rollover at {{ opensearch_ism_rollover_min_size }}/{{ opensearch_ism_rollover_min_age }} and delete after {{ opensearch_ism_delete_min_age }}"
+    default_state: "hot"
+    states:
+      - name: "hot"
+        actions:
+          - rollover:
+              min_size: "{{ opensearch_ism_rollover_min_size }}"
+              min_index_age: "{{ opensearch_ism_rollover_min_age }}"
+        transitions:
+          - state_name: "delete"
+            conditions:
+              min_index_age: "{{ opensearch_ism_delete_min_age }}"
+      - name: "delete"
+        actions:
+          - delete: {}
+        transitions: []
+    ism_template:
+      - index_patterns: "{{ opensearch_ism_index_patterns }}"
+        priority: 100

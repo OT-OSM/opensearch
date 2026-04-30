@@ -4,8 +4,18 @@ _meta:
 
 all_access:
   reserved: false
+  users:
+    - "{{ opensearch_admin_username }}"
   backend_roles:
     - "admin"
+
+manage_snapshots:
+  reserved: false
+  users:
+    - "{{ opensearch_admin_username }}"
+
+snapshot_management_full_access:
+  reserved: false
   users:
     - "{{ opensearch_admin_username }}"
 

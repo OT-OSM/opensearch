@@ -1,0 +1,391 @@
+---
+# ===========================
+# Fire Drill — Restore from MinIO Snapshot
+# ===========================
+
+- name: Wait for cluster to be healthy before restore
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: health
+  until: health.json.status in ["green", "yellow"]
+  retries: 15
+  delay: 10
+
+- name: Verify restore permissions before proceeding
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/authinfo"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: restore_auth_info
+  failed_when: restore_auth_info.status != 200
+
+- name: Show current user roles (diagnostic)
+  ansible.builtin.debug:
+    msg: >
+      Restore user: {{ restore_auth_info.json.user_name | default('unknown') }}
+      | Roles: {{ restore_auth_info.json.roles | default([]) }}
+
+# ===========================
+# Ensure Restore Permissions via Security API
+# ===========================
+
+- name: Create / update firedrill_restore_role with explicit snapshot permissions
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/roles/firedrill_restore_role"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      cluster_permissions:
+        - "cluster:admin/*"
+        - "cluster:admin/snapshot/restore"
+        - "cluster:admin/snapshot/get"
+        - "cluster:admin/snapshot/create"
+        - "cluster:admin/snapshot/delete"
+        - "cluster:admin/snapshot/status"
+        - "cluster:admin/repository/get"
+        - "cluster:admin/repository/put"
+        - "cluster:admin/repository/delete"
+        - "cluster:admin/repository/verify"
+        - "cluster:monitor/*"
+      index_permissions:
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - "*"
+            - "indices:admin/close"
+            - "indices:admin/open"
+            - "indices:admin/delete"
+            - "indices:admin/create"
+            - "indices:admin/mapping/put"
+            - "indices:admin/settings/update"
+            - "indices:data/write/*"
+            - "indices:data/read/*"
+            - "indices:monitor/*"
+    status_code: [200, 201]
+  retries: 3
+  delay: 5
+
+- name: Map admin user to firedrill_restore_role
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/firedrill_restore_role"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
+    status_code: [200, 201]
+  retries: 3
+  delay: 5
+
+- name: Ensure admin is mapped to the internal snapshot management role
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/rolesmapping/snapshot_management_full_access"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
+    status_code: [200, 201]
+
+- name: Patch all_access role to allow restricted (system) indices
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/roles/all_access"
+    method: PATCH
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      - op: replace
+        path: "/index_permissions/0/allow_restricted_indices"
+        value: true
+    status_code: [200, 201]
+  failed_when: false
+
+# ===========================
+# CRITICAL: Flush Security Plugin Cache
+# The in-memory permission cache must be flushed after any role/mapping change.
+# ===========================
+
+- name: Flush OpenSearch security plugin cache
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_plugins/_security/api/cache"
+    method: DELETE
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+  register: cache_flush
+  failed_when: false
+
+- name: Show cache flush result
+  ansible.builtin.debug:
+    msg: "Security cache flush: {{ cache_flush.json | default(cache_flush.msg) }}"
+
+- name: Wait for security cache to propagate across cluster nodes
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: Reload secure settings so keystore S3 credentials are active
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_nodes/reload_secure_settings"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+  register: reload_result
+  failed_when: false
+
+- name: Show reload_secure_settings result
+  ansible.builtin.debug:
+    msg: "Secure settings reload: {{ reload_result.json | default(reload_result.msg) }}"
+
+- name: Verify network connectivity to MinIO
+  ansible.builtin.wait_for:
+    host: "{{ opensearch_minio_endpoint | regex_replace('^https?://', '') | regex_replace(':.*$', '') }}"
+    port: "{{ opensearch_minio_endpoint | regex_replace('^.*:', '') | int }}"
+    timeout: 10
+    msg: "Cannot reach MinIO at {{ opensearch_minio_endpoint }}. Check firewall or MinIO service status."
+
+# ===========================
+# Register Snapshot Repository
+# ===========================
+
+- name: Register MinIO snapshot repository
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      type: s3
+      settings:
+        bucket: "{{ opensearch_backup_bucket }}"
+        endpoint: "{{ opensearch_minio_endpoint }}"
+        protocol: "{{ opensearch_minio_protocol }}"
+        region: "us-east-1"
+        path_style_access: true
+        disable_chunked_encoding: true
+    status_code: [200, 201]
+
+# ===========================
+# Discover Latest Snapshot
+# ===========================
+
+- name: List all snapshots in repository
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/_all"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: snapshot_list
+
+- name: Fail if no snapshots found
+  ansible.builtin.fail:
+    msg: "No snapshots found in repository '{{ opensearch_backup_repo }}'. Cannot restore."
+  when: snapshot_list.json.snapshots | length == 0
+
+- name: Identify latest successful snapshot
+  ansible.builtin.set_fact:
+    opensearch_restore_snapshot_name: >-
+      {{
+        (snapshot_list.json.snapshots
+          | selectattr('state', 'equalto', 'SUCCESS')
+          | list
+          | last).snapshot
+      }}
+  when: opensearch_restore_snapshot_name | default('') == ''
+
+- name: Fail if no successful snapshot could be identified
+  ansible.builtin.fail:
+    msg: "No successful (SUCCESS state) snapshot found in '{{ opensearch_backup_repo }}'. Check your backup runs."
+  when: opensearch_restore_snapshot_name | default('') == ''
+
+- name: Show snapshot that will be restored
+  ansible.builtin.debug:
+    msg: "Restoring from snapshot: {{ opensearch_restore_snapshot_name }}"
+
+# ===========================
+# Detect restorable (user data) indices in the snapshot
+# System/plugin indices (.kibana, .opensearch-*, etc.) cannot be restored
+# via the REST API without securityadmin access — they are recreated by
+# OpenSearch plugins automatically on startup.
+# ===========================
+
+- name: Get target snapshot metadata
+  ansible.builtin.set_fact:
+    _target_snapshot: >-
+      {{
+        snapshot_list.json.snapshots
+          | selectattr('snapshot', 'equalto', opensearch_restore_snapshot_name)
+          | list | first
+      }}
+
+- name: Identify user data indices in snapshot (exclude dot-prefixed system indices)
+  ansible.builtin.set_fact:
+    _user_data_indices: >-
+      {{
+        _target_snapshot.indices
+          | reject('match', '^[.]')
+          | list
+      }}
+
+- name: Show restorable indices
+  ansible.builtin.debug:
+    msg: |
+      Snapshot     : {{ opensearch_restore_snapshot_name }}
+      All indices  : {{ _target_snapshot.indices | join(', ') }}
+      User indices : {{ _user_data_indices | join(', ') if _user_data_indices else 'none (all are system indices)' }}
+
+# ===========================
+# Close existing user indices before restore (best effort)
+# ===========================
+
+- name: Close all open user indices before restore
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/*,-.*/_close"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      expand_wildcards: open
+      ignore_unavailable: true
+    status_code: [200, 201]
+  register: close_result
+  ignore_errors: true
+  when: _user_data_indices | length > 0
+
+- name: Pause to ensure cluster settles before restore
+  ansible.builtin.pause:
+    seconds: 10
+  when: _user_data_indices | length > 0
+
+# ===========================
+# Restore Snapshot (user data indices only)
+# ===========================
+
+- name: Skip restore — snapshot contains only system indices
+  ansible.builtin.debug:
+    msg: >
+      Snapshot '{{ opensearch_restore_snapshot_name }}' contains only system/plugin indices
+      (.kibana, .opensearch-*, etc.). These are recreated automatically by OpenSearch
+      plugins on startup and do not need snapshot restoration.
+      Firedrill restore task: COMPLETE (no user data indices to restore).
+  when: _user_data_indices | length == 0
+
+- name: Record restoration start time
+  ansible.builtin.set_fact:
+    _restore_start_time: "{{ ansible_date_time.epoch }}"
+  when: _user_data_indices | length > 0
+
+- name: Restore snapshot (user data indices only, synchronous)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_restore_snapshot_name }}/_restore?wait_for_completion=true"
+    method: POST
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      indices: "{{ _user_data_indices | join(',') }}"
+      include_global_state: false
+      include_aliases: true
+      ignore_unavailable: true
+    status_code: [200, 201, 202]
+    timeout: 600
+  register: restore_result
+  when: _user_data_indices | length > 0
+
+- name: Show restore result
+  ansible.builtin.debug:
+    msg: "Restore completed: {{ restore_result.json | to_nice_json }}"
+  when: _user_data_indices | length > 0
+
+# ===========================
+# Wait for restore to complete
+# ===========================
+
+- name: Wait for restore to complete (poll recovery status)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_cat/recovery?active_only=true&format=json"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: recovery_status
+  until: recovery_status.json | length == 0
+  retries: 30
+  delay: 15
+  when: _user_data_indices | length > 0
+
+- name: Verify cluster health after restore
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_cluster/health?wait_for_status=yellow&timeout=60s"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: post_restore_health
+  when: _user_data_indices | length > 0
+
+- name: Show cluster health after restore
+  ansible.builtin.debug:
+    msg: "Cluster status after restore: {{ post_restore_health.json.status }}"
+  when: _user_data_indices | length > 0
+
+- name: Record restoration end time
+  ansible.builtin.set_fact:
+    _restore_end_time: "{{ ansible_date_time.epoch }}"
+  when: _user_data_indices | length > 0
+
+- name: Show Restoration Summary
+  ansible.builtin.debug:
+    msg: |
+      ==================== RESTORATION SUMMARY ====================
+      Snapshot     : {{ opensearch_restore_snapshot_name }}
+      Repository   : {{ opensearch_backup_repo }}
+      Indices      : {{ _user_data_indices | join(', ') }}
+      Duration     : {{ (_restore_end_time | int) - (_restore_start_time | int) }} seconds
+      Status       : SUCCESS (Cluster Healthy)
+      =============================================================
+  when: _user_data_indices | length > 0

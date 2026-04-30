@@ -60,8 +60,9 @@
     msg: "Missing TLS file: {{ item.item }}"
   when:
     - opensearch_use_tls | bool
+    - item.stat is defined
     - not item.stat.exists
-  loop: "{{ tls_files.results }}"
+  loop: "{{ tls_files.results | default([]) }}"
 
 # Fix TLS permissions
 
@@ -87,7 +88,7 @@
     mode: "0700"
     recurse: true
 
-# Restart OpenSearch
+# Restart OpenSearch (TLS mode only — config changed)
 
 - name: Restart OpenSearch
   ansible.builtin.systemd:
@@ -107,7 +108,15 @@
     timeout: 180
   when: opensearch_use_tls | bool
 
-# Deploy Security Config templates to the security config dir
+# Deploy Security Config templates — runs in BOTH TLS and HTTP modes
+
+- name: Deploy config.yml to security config dir
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ opensearch_security_config_dir }}/config.yml"
+    owner: opensearch
+    group: opensearch
+    mode: "0600"
 
 - name: Deploy internal_users.yml to security config dir
   ansible.builtin.template:
@@ -116,7 +125,6 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: opensearch_use_tls | bool
 
 - name: Deploy roles_mapping.yml to security config dir
   ansible.builtin.template:
@@ -125,9 +133,8 @@
     owner: opensearch
     group: opensearch
     mode: "0600"
-  when: opensearch_use_tls | bool
 
-# Initialize Security Index
+# Initialize Security Index via securityadmin.sh (TLS mode only)
 
 - name: Initialize OpenSearch Security Index
   ansible.builtin.command: >
@@ -143,7 +150,7 @@
   when: opensearch_use_tls | bool
   changed_when: "'Done with success' in security_init.stdout"
 
-# Restart after init
+# Restart after init (TLS only)
 
 - name: Restart OpenSearch after security init
   ansible.builtin.systemd:
@@ -153,7 +160,7 @@
     - opensearch_use_tls | bool
     - security_init is changed
 
-# Final wait
+# Final wait (TLS only)
 
 - name: Wait for OpenSearch HTTPS after security init
   ansible.builtin.wait_for:
@@ -165,7 +172,9 @@
     - opensearch_use_tls | bool
     - security_init is changed
 
-# Security Verification (Merged from security-config-http.yml)
+# ===========================
+# Security Verification — runs in BOTH TLS and HTTP modes
+# ===========================
 
 - name: Determine protocol
   ansible.builtin.set_fact:
@@ -175,8 +184,8 @@
   ansible.builtin.uri:
     url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_cluster/health"
     method: GET
-    user: "{{ opensearch_api_username }}"
-    password: "{{ opensearch_api_password }}"
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
     force_basic_auth: true
     validate_certs: false
     status_code: 200
@@ -190,3 +199,82 @@
     msg: >
       Connected to {{ opensearch_api_host }}
       | Cluster status: {{ health_with_auth.json.status }}
+
+- name: Apply roles mapping for admin user (Securely with retry)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/{{ item }}"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      users:
+        - "{{ opensearch_admin_username }}"
+      backend_roles:
+        - "admin"
+    status_code: [200, 201]
+  loop:
+    - "all_access"
+    - "snapshot_management_full_access"
+    - "manage_snapshots"
+  register: mapping_update
+  retries: 5
+  delay: 10
+  until: mapping_update.status in [200, 201]
+  run_once: true
+
+- name: Verify roles mapping applied
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/rolesmapping/all_access"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: verify_roles
+  retries: 5
+  delay: 10
+  until: >
+    (
+      (verify_roles.json.all_access.users is defined and
+       opensearch_admin_username in verify_roles.json.all_access.users)
+      or
+      (verify_roles.json.users is defined and
+       opensearch_admin_username in verify_roles.json.users)
+    )
+
+- name: Apply security config via REST API (HTTP Mode)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/api/securityconfig/config"
+    method: PUT
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body: "{{ (lookup('template', 'config.yml.j2') | from_yaml).config }}"
+    status_code: [200, 201]
+
+
+  when: not opensearch_use_tls | bool
+  register: config_update
+  retries: 5
+  delay: 10
+  until: config_update.status in [200, 201]
+  run_once: true
+
+- name: Verify restore permissions (Authinfo)
+  ansible.builtin.uri:
+    url: "{{ _opensearch_protocol }}://{{ opensearch_api_host }}:{{ opensearch_http_port }}/_plugins/_security/authinfo"
+    method: GET
+    user: "{{ opensearch_admin_username }}"
+    password: "{{ opensearch_admin_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: auth_info
+  failed_when: >
+    (auth_info.status != 200) or
+    ('all_access' not in auth_info.json.roles) or
+    ('snapshot_management_full_access' not in auth_info.json.roles)

@@ -1,0 +1,123 @@
+---
+- name: Wait for cluster green
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_cluster/health"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: health
+  until: health.json.status in ["green", "yellow"]
+  retries: 10
+  delay: 10
+
+- name: Reload secure settings so keystore S3 credentials are active
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_nodes/reload_secure_settings"
+    method: POST
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200, 201]
+  register: reload_result
+  failed_when: false
+
+- name: Show reload_secure_settings result
+  ansible.builtin.debug:
+    msg: "Secure settings reload: {{ reload_result.json | default(reload_result.msg) }}"
+
+# ===========================
+# Create Snapshot Repository
+# ===========================
+
+- name: Create snapshot repository
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      type: s3
+      settings:
+        bucket: "{{ opensearch_backup_bucket }}"
+        endpoint: "{{ opensearch_minio_endpoint }}"
+        protocol: "{{ opensearch_minio_protocol }}"
+        region: "us-east-1"
+        path_style_access: true
+        disable_chunked_encoding: true
+    status_code: [200, 201]
+
+- name: Verify snapshot repository
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: repo_check
+  failed_when: >
+    repo_check.status != 200 or
+    (repo_check.json[opensearch_backup_repo] is not defined) or
+    (repo_check.json[opensearch_backup_repo].type != 's3')
+
+- name: Wait before snapshot (cluster stable)
+  ansible.builtin.pause:
+    seconds: 30
+
+# ===========================
+# Create Snapshot (BACKUP)
+# ===========================
+
+- name: Create snapshot
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}?wait_for_completion=true"
+    method: PUT
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      indices: "*"
+      ignore_unavailable: true
+      include_global_state: false
+    status_code: [200, 201]
+    timeout: 300
+
+# ===========================
+# Show Snapshot Summary
+# ===========================
+
+- name: Fetch snapshot status
+  ansible.builtin.uri:
+    url: "{{ _opensearch_url }}/_snapshot/{{ opensearch_backup_repo }}/{{ opensearch_backup_name }}"
+    method: GET
+    user: "{{ opensearch_backup_username | default(opensearch_admin_username) }}"
+    password: "{{ opensearch_backup_password | default(opensearch_admin_password) }}"
+    force_basic_auth: true
+    validate_certs: false
+    return_content: true
+  register: snapshot_info
+
+- name: Show snapshot summary
+  ansible.builtin.debug:
+    msg: |
+      ==================== SNAPSHOT SUMMARY ====================
+      Name       : {{ snapshot_info.json.snapshots[0].snapshot }}
+      State      : {{ snapshot_info.json.snapshots[0].state }}
+      Start Time : {{ snapshot_info.json.snapshots[0].start_time }}
+      End Time   : {{ snapshot_info.json.snapshots[0].end_time }}
+      Indices    : {{ snapshot_info.json.snapshots[0].indices | join(', ') }}
+      Shards     : {{ snapshot_info.json.snapshots[0].shards.successful }} successful /
+                   {{ snapshot_info.json.snapshots[0].shards.total }} total
+      Repository : {{ opensearch_backup_repo }}
+      Bucket     : {{ opensearch_backup_bucket }}
+      ===========================================================

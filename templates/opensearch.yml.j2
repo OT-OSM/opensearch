@@ -32,11 +32,13 @@ discovery.type: single-node
 plugins.security.disabled: {{ opensearch_security_disabled | default(false) | lower }}
 
 plugins.security.allow_default_init_securityindex: true
-plugins.security.system_indices.enabled: true
+plugins.security.system_indices.enabled: false
 
-plugins.security.restapi.roles_enabled:
-  - all_access
-  - security_rest_api_access
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+plugins.security.unsupported.restapi.allow_securityconfig_modification: true
+
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: false
 
 
 # ========================
@@ -92,11 +94,26 @@ plugins.security.ssl.http.enabled: false
 
 # Demo Admin DN
 plugins.security.authcz.admin_dn:
-  - "CN=kirk,OU=client,O=client,L=test,C=de"
+{% for dn in opensearch_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
 # Demo Node DN
 plugins.security.nodes_dn:
-  - "CN=esnode,OU=client,O=client,L=test,C=de"
+{% for dn in opensearch_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
 
 {% endif %}
 
+
+# ========================
+# S3 Snapshot (MinIO)
+# ========================
+{% if (opensearch_backup_enabled | bool) or (opensearch_restore_enabled | bool) %}
+
+s3.client.default.endpoint: "{{ opensearch_minio_endpoint }}"
+s3.client.default.protocol: "{{ opensearch_minio_protocol }}"
+s3.client.default.path_style_access: true
+
+{% endif %}

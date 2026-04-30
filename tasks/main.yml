@@ -62,14 +62,16 @@
 
 - name: Verify cluster health
   ansible.builtin.include_tasks: verify-cluster.yml
-  when:
-    - opensearch_install_node | bool
-    - opensearch_enable_cluster_mode | bool
+  when: opensearch_install_node | bool
+
+- name: Configure ISM policies
+  ansible.builtin.include_tasks: ism-policies.yml
+  when: opensearch_ism_enabled | bool
 
 - name: Install Prometheus exporter
   ansible.builtin.include_tasks: install-exporter.yml
   when: opensearch_metrics_enabled | bool
-  
+
 - name: Verify network connectivity between nodes (Port 9300)
   ansible.builtin.wait_for:
     host: "{{ item }}"
@@ -80,3 +82,18 @@
   when:
     - opensearch_enable_cluster_mode | bool
     - opensearch_discovery_seed_hosts | length > 0
+
+- name: Configure S3/MinIO credentials in OpenSearch keystore (all nodes)
+  ansible.builtin.include_tasks: s3-keystore.yml
+  when: (opensearch_backup_enabled | bool) or
+    (opensearch_restore_enabled | bool)
+
+- name: Run backup tasks
+  ansible.builtin.include_tasks: backup.yml
+  when: opensearch_backup_enabled | bool
+  run_once: true
+
+- name: Run restore tasks
+  ansible.builtin.include_tasks: restore.yml
+  when: opensearch_restore_enabled | bool
+  run_once: true
