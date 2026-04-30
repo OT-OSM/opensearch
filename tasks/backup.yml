@@ -46,8 +46,8 @@
       type: s3
       settings:
         bucket: "{{ opensearch_backup_bucket }}"
-        endpoint: "{{ minio_endpoint }}"
-        protocol: "{{ minio_protocol }}"
+        endpoint: "{{ opensearch_minio_endpoint }}"
+        protocol: "{{ opensearch_minio_protocol }}"
         region: "us-east-1"
         path_style_access: true
         disable_chunked_encoding: true

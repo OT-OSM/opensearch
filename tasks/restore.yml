@@ -171,10 +171,10 @@
 
 - name: Verify network connectivity to MinIO
   ansible.builtin.wait_for:
-    host: "{{ minio_endpoint | regex_replace('^https?://', '') | regex_replace(':.*$', '') }}"
-    port: "{{ minio_endpoint | regex_replace('^.*:', '') | int }}"
+    host: "{{ opensearch_minio_endpoint | regex_replace('^https?://', '') | regex_replace(':.*$', '') }}"
+    port: "{{ opensearch_minio_endpoint | regex_replace('^.*:', '') | int }}"
     timeout: 10
-    msg: "Cannot reach MinIO at {{ minio_endpoint }}. Check firewall or MinIO service status."
+    msg: "Cannot reach MinIO at {{ opensearch_minio_endpoint }}. Check firewall or MinIO service status."
 
 # ===========================
 # Register Snapshot Repository
@@ -193,8 +193,8 @@
       type: s3
       settings:
         bucket: "{{ opensearch_backup_bucket }}"
-        endpoint: "{{ minio_endpoint }}"
-        protocol: "{{ minio_protocol }}"
+        endpoint: "{{ opensearch_minio_endpoint }}"
+        protocol: "{{ opensearch_minio_protocol }}"
         region: "us-east-1"
         path_style_access: true
         disable_chunked_encoding: true

@@ -144,12 +144,12 @@ opensearch_backup_repo: "minio_repo"
 opensearch_backup_bucket: "opensearch-backup"
 opensearch_backup_name: "snapshot_{{ ansible_date_time.epoch }}"
 
-minio_endpoint: "your-minio-host:9000"
-minio_protocol: "https"
+opensearch_minio_endpoint: "your-minio-host:9000"
+opensearch_minio_protocol: "https"
 
 # Credentials — sourced from dedicated Semaphore env vars
-minio_access_key: "{{ lookup('env', 'OPENSEARCH_MINIO_ACCESS_KEY') }}"
-minio_secret_key: "{{ lookup('env', 'OPENSEARCH_MINIO_SECRET_KEY') }}"
+opensearch_minio_access_key: "{{ lookup('env', 'OPENSEARCH_MINIO_ACCESS_KEY') }}"
+opensearch_minio_secret_key: "{{ lookup('env', 'OPENSEARCH_MINIO_SECRET_KEY') }}"
 
 # Extra S3 client options
 opensearch_s3_path_style_access: true

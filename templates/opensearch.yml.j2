@@ -112,8 +112,8 @@ plugins.security.nodes_dn:
 # ========================
 {% if (opensearch_backup_enabled | bool) or (opensearch_restore_enabled | bool) %}
 
-s3.client.default.endpoint: "{{ minio_endpoint }}"
-s3.client.default.protocol: "{{ minio_protocol }}"
+s3.client.default.endpoint: "{{ opensearch_minio_endpoint }}"
+s3.client.default.protocol: "{{ opensearch_minio_protocol }}"
 s3.client.default.path_style_access: true
 
 {% endif %}

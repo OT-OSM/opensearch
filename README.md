@@ -124,9 +124,9 @@ Defined in `defaults/main.yml`
 | node_roles       | master/data roles          |
 | opensearch_port  | Default 9200               |
 | dashboards_port  | Default 5601               |
-| minio_endpoint   | MinIO URL                  |
-| minio_access_key | Access key                 |
-| minio_secret_key | Secret key                 |
+| opensearch_minio_endpoint   | MinIO URL                  |
+| opensearch_minio_access_key | Access key                 |
+| opensearch_minio_secret_key | Secret key                 |
 | tls_enabled      | Enable TLS via Envoy       |
 
 ---
